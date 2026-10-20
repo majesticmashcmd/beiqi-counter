@@ -23,8 +23,7 @@ class BleManager(
 
     interface BleEventListener {
         fun onConnectionStateChanged(state: ConnectionState)
-        fun onClickRegistered(rawHex: String)
-        fun onDeviceCountDetected(deviceCount: Int, rawHex: String)
+        fun onSingleClickRegistered(rawHex: String)
         fun onError(message: String)
     }
 
@@ -45,12 +44,11 @@ class BleManager(
     private var isWritingDescriptor = false
 
     private var lastClickTimestamp = 0L
-    private var lastKnownDeviceCount: Int? = null
 
     @SuppressLint("MissingPermission")
     fun connect() {
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
-            listener.onError("Bluetooth is disabled. Please turn on Bluetooth.")
+            listener.onError("Bluetooth is turned off. Please turn on Bluetooth.")
             return
         }
 
@@ -109,11 +107,11 @@ class BleManager(
         @SuppressLint("MissingPermission")
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             if (status != BluetoothGatt.GATT_SUCCESS) {
-                Log.w(TAG, "onServicesDiscovered failed with status: $status")
+                Log.w(TAG, "onServicesDiscovered failed: $status")
                 return
             }
 
-            Log.d(TAG, "Services discovered. Enrolling notifications and reading readable attributes...")
+            Log.d(TAG, "Services discovered. Subscribing to click notification stream...")
             var notifyFound = false
 
             for (service in gatt.services) {
@@ -123,7 +121,7 @@ class BleManager(
                     val canIndicate = (props and BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0
 
                     if (canNotify || canIndicate) {
-                        Log.d(TAG, "Enabling notifications on characteristic: ${characteristic.uuid}")
+                        Log.d(TAG, "Subscribing to: ${characteristic.uuid}")
                         gatt.setCharacteristicNotification(characteristic, true)
 
                         val descriptor = characteristic.getDescriptor(CCCD_UUID)
@@ -138,15 +136,6 @@ class BleManager(
                             notifyFound = true
                         }
                     }
-
-                    // Attempt to read readable characteristics that might contain the counter state
-                    if ((props and BluetoothGattCharacteristic.PROPERTY_READ) != 0) {
-                        try {
-                            gatt.readCharacteristic(characteristic)
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Could not read characteristic ${characteristic.uuid}: ${e.message}")
-                        }
-                    }
                 }
             }
 
@@ -154,7 +143,7 @@ class BleManager(
                 if (notifyFound) {
                     listener.onConnectionStateChanged(ConnectionState.READY)
                 } else {
-                    listener.onError("Connected, but no notify characteristics discovered.")
+                    listener.onError("Connected, but no notification channel found.")
                 }
             }
         }
@@ -166,7 +155,7 @@ class BleManager(
         ) {
             @Suppress("DEPRECATION")
             val data = characteristic.value ?: return
-            handleIncomingBytes(data)
+            handleNotification(data)
         }
 
         override fun onCharacteristicChanged(
@@ -174,31 +163,7 @@ class BleManager(
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray
         ) {
-            handleIncomingBytes(value)
-        }
-
-        @Deprecated("Deprecated in Java")
-        override fun onCharacteristicRead(
-            gatt: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic,
-            status: Int
-        ) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                @Suppress("DEPRECATION")
-                val data = characteristic.value ?: return
-                inspectReadPayload(data)
-            }
-        }
-
-        override fun onCharacteristicRead(
-            gatt: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic,
-            value: ByteArray,
-            status: Int
-        ) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                inspectReadPayload(value)
-            }
+            handleNotification(value)
         }
 
         override fun onDescriptorWrite(
@@ -225,64 +190,23 @@ class BleManager(
         bluetoothGatt?.writeDescriptor(next)
     }
 
-    private fun inspectReadPayload(bytes: ByteArray) {
-        if (bytes.isEmpty()) return
-        val hexString = bytes.joinToString(" ") { "%02X".format(it) }
-        Log.d(TAG, "Characteristic Read: $hexString")
-        val parsedCount = extractCountFromPayload(bytes)
-        if (parsedCount != null && parsedCount > 0) {
-            mainHandler.post {
-                listener.onDeviceCountDetected(parsedCount, hexString)
-            }
-        }
-    }
-
-    private fun handleIncomingBytes(bytes: ByteArray) {
+    /**
+     * Strict 1 Click = 1 Count.
+     * Whenever the counter ring button is clicked, it sends a BLE notification.
+     * We debounce by 90ms to ensure 1 press = 1 registration.
+     */
+    private fun handleNotification(bytes: ByteArray) {
         val now = System.currentTimeMillis()
-        if (now - lastClickTimestamp < 60) {
-            return // Debounce 60ms
+        if (now - lastClickTimestamp < 90) {
+            return // Ignore duplicate bounce within 90ms
         }
         lastClickTimestamp = now
 
         val hexString = bytes.joinToString(" ") { "%02X".format(it) }
-        Log.d(TAG, "Notification received from BEIQI-ST: $hexString")
+        Log.d(TAG, "Ring Click Registered: $hexString")
 
-        val detectedCount = extractCountFromPayload(bytes)
         mainHandler.post {
-            if (detectedCount != null && detectedCount > 0 && detectedCount != lastKnownDeviceCount) {
-                lastKnownDeviceCount = detectedCount
-                listener.onDeviceCountDetected(detectedCount, hexString)
-            } else {
-                listener.onClickRegistered(hexString)
-            }
+            listener.onSingleClickRegistered(hexString)
         }
-    }
-
-    /**
-     * Inspects byte patterns typical for BEIQI / Smart Tasbih rings.
-     * Searches for 16-bit or 24-bit embedded integer values.
-     */
-    private fun extractCountFromPayload(bytes: ByteArray): Int? {
-        if (bytes.size < 3) return null
-
-        // Pattern 1: Big-Endian at the end of packet (common: [header, cmd, high, low])
-        val last16Big = ((bytes[bytes.size - 2].toInt() and 0xFF) shl 8) or (bytes[bytes.size - 1].toInt() and 0xFF)
-        if (last16Big in 1..99999) {
-            return last16Big
-        }
-
-        // Pattern 2: Little-Endian at the end of packet
-        val last16Little = ((bytes[bytes.size - 1].toInt() and 0xFF) shl 8) or (bytes[bytes.size - 2].toInt() and 0xFF)
-        if (last16Little in 1..99999) {
-            return last16Little
-        }
-
-        // Pattern 3: Fixed offset (index 2-3 or 3-4)
-        if (bytes.size >= 5) {
-            val mid16 = ((bytes[2].toInt() and 0xFF) shl 8) or (bytes[3].toInt() and 0xFF)
-            if (mid16 in 1..99999) return mid16
-        }
-
-        return null
     }
 }

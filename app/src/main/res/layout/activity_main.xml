@@ -12,9 +12,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:padding="16dp">
 
-        <!-- Top App Bar -->
+        <!-- Top Header Bar -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -31,9 +31,9 @@
                     android:id="@+id/appTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="BEIQI Mala Counter"
+                    android:text="BEIQI Multi-Counter"
                     android:textColor="@color/gold_text"
-                    android:textSize="22sp"
+                    android:textSize="20sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -43,7 +43,7 @@
                     android:layout_marginTop="2dp"
                     android:text="BEIQI-ST (7A:EC:97:9F:C2:B8)"
                     android:textColor="@color/text_muted"
-                    android:textSize="12sp" />
+                    android:textSize="11sp" />
             </LinearLayout>
 
             <com.google.android.material.button.MaterialButton
@@ -51,7 +51,7 @@
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="6dp"
                 android:text="Theme"
                 android:textColor="@color/gold_accent"
                 app:strokeColor="@color/gold_card_stroke" />
@@ -65,14 +65,14 @@
                 android:textColor="@color/gold_accent" />
         </LinearLayout>
 
-        <!-- Connection Status Pill -->
+        <!-- Bluetooth Status Pill -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/statusCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="10dp"
             app:cardBackgroundColor="@color/gold_card"
-            app:cardCornerRadius="12dp"
+            app:cardCornerRadius="10dp"
             app:strokeColor="@color/gold_card_stroke"
             app:strokeWidth="1dp">
 
@@ -81,7 +81,7 @@
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="12dp">
+                android:padding="10dp">
 
                 <View
                     android:id="@+id/statusIndicator"
@@ -93,101 +93,217 @@
                     android:id="@+id/statusText"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="8dp"
                     android:layout_weight="1"
                     android:text="Disconnected"
                     android:textColor="@color/gold_text"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/syncStatusText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Ready to sync"
+                    android:text="1 Click = 1 Count"
                     android:textColor="@color/text_muted"
-                    android:textSize="12sp" />
+                    android:textSize="11sp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Stats Overview Cards (Mala, Today, Lifetime) -->
+        <!-- Multi-Counter Selection Toolbar -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="12dp"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <!-- Completed Malas -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardMalas"
+            <!-- Switch Counter Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSwitchCounter"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="6dp"
                 android:layout_weight="1"
-                app:cardBackgroundColor="@color/gold_card"
-                app:cardCornerRadius="16dp"
-                app:strokeColor="@color/gold_card_stroke"
-                app:strokeWidth="1dp">
+                android:text="📁 Switch Counter ▾"
+                android:textColor="@color/gold_text"
+                android:textSize="13sp"
+                app:strokeColor="@color/gold_card_stroke" />
 
-                <LinearLayout
+            <!-- New Counter Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAddCounter"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:text="+ New"
+                android:textColor="@color/gold_accent"
+                app:strokeColor="@color/gold_card_stroke" />
+
+            <!-- Edit/Rename Counter Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEditCounter"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="✎ Edit"
+                android:textColor="@color/text_muted"
+                app:strokeColor="@color/gold_card_stroke" />
+        </LinearLayout>
+
+        <!-- Main Counter Hero Card with Custom Picture -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/counterHeroCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="@color/gold_card"
+            app:cardCornerRadius="20dp"
+            app:strokeColor="@color/gold_card_stroke"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <!-- Clickable Image/Avatar Area -->
+                <FrameLayout
+                    android:id="@+id/imageContainer"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp">
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/counterImage"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@color/gold_card_stroke"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/ic_launcher"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.MaterialComponents.MediumComponent" />
+
+                    <View
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="bottom|end"
+                        android:background="@color/gold_accent" />
+
+                    <TextView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="bottom|end"
+                        android:gravity="center"
+                        android:text="📷"
+                        android:textColor="@color/black"
+                        android:textSize="11sp" />
+                </FrameLayout>
+
+                <!-- Counter Name Title -->
+                <TextView
+                    android:id="@+id/tvCounterName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Meditation (Japa)"
+                    android:textColor="@color/gold_text"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <!-- Current Bead Display -->
+                <TextView
+                    android:id="@+id/tvCurrentBeads"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="0"
+                    android:textColor="@color/gold_accent"
+                    android:textSize="82sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvMalaTarget"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="of 108 beads (1 Mala)"
+                    android:textColor="@color/text_muted"
+                    android:textSize="13sp" />
+
+                <!-- Visual Mala Progress Bar -->
+                <com.google.android.material.progressindicator.LinearProgressIndicator
+                    android:id="@+id/malaProgressBar"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="12dp">
+                    android:layout_marginTop="14dp"
+                    android:max="108"
+                    android:progress="0"
+                    app:indicatorColor="@color/gold_accent"
+                    app:trackColor="@color/gold_card_stroke"
+                    app:trackCornerRadius="4dp"
+                    app:trackThickness="8dp" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:letterSpacing="0.08"
-                        android:text="MALAS"
-                        android:textColor="@color/text_muted"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
+                <!-- Reset Mala Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnResetMala"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Reset Mala"
+                    android:textColor="@color/text_muted"
+                    app:strokeColor="@color/gold_card_stroke" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-                    <TextView
-                        android:id="@+id/tvTotalMalas"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="0"
-                        android:textColor="@color/gold_accent"
-                        android:textSize="22sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+        <!-- DASHBOARD: 4 STATS (Daily Count, Daily Mala, Lifetime Count, Lifetime Mala) -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:letterSpacing="0.1"
+            android:text="DASHBOARD METRICS"
+            android:textColor="@color/text_muted"
+            android:textSize="11sp"
+            android:textStyle="bold" />
 
-            <!-- Today's Count -->
+        <!-- Row 1: Daily Stats -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <!-- Card 1: Daily Count -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardToday"
+                android:id="@+id/cardDailyCount"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="3dp"
-                android:layout_marginEnd="3dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
                 app:cardBackgroundColor="@color/gold_card"
-                app:cardCornerRadius="16dp"
+                app:cardCornerRadius="14dp"
                 app:strokeColor="@color/gold_card_stroke"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center"
                     android:orientation="vertical"
                     android:padding="12dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:letterSpacing="0.08"
-                        android:text="TODAY"
+                        android:text="📅 Daily Count"
                         android:textColor="@color/text_muted"
                         android:textSize="11sp"
                         android:textStyle="bold" />
 
                     <TextView
-                        android:id="@+id/tvTodayCount"
+                        android:id="@+id/tvDailyCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
@@ -198,30 +314,74 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Lifetime Count -->
+            <!-- Card 2: Daily Mala -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardLifetime"
+                android:id="@+id/cardDailyMala"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
+                android:layout_marginStart="5dp"
                 android:layout_weight="1"
                 app:cardBackgroundColor="@color/gold_card"
-                app:cardCornerRadius="16dp"
+                app:cardCornerRadius="14dp"
                 app:strokeColor="@color/gold_card_stroke"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center"
                     android:orientation="vertical"
                     android:padding="12dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:letterSpacing="0.08"
-                        android:text="LIFETIME"
+                        android:text="📿 Daily Mala"
+                        android:textColor="@color/text_muted"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvDailyMala"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="0"
+                        android:textColor="@color/gold_accent"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+
+        <!-- Row 2: Lifetime Stats -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <!-- Card 3: Lifetime Count -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardLifetimeCount"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1"
+                app:cardBackgroundColor="@color/gold_card"
+                app:cardCornerRadius="14dp"
+                app:strokeColor="@color/gold_card_stroke"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="♾️ Lifetime Count"
                         android:textColor="@color/text_muted"
                         android:textSize="11sp"
                         android:textStyle="bold" />
@@ -237,96 +397,45 @@
                         android:textStyle="bold" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
-        </LinearLayout>
 
-        <!-- Main Mala 108 Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/counterHeroCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:cardBackgroundColor="@color/gold_card"
-            app:cardCornerRadius="24dp"
-            app:strokeColor="@color/gold_card_stroke"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
+            <!-- Card 4: Lifetime Mala -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardLifetimeMala"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:padding="28dp">
+                android:layout_marginStart="5dp"
+                android:layout_weight="1"
+                app:cardBackgroundColor="@color/gold_card"
+                app:cardCornerRadius="14dp"
+                app:strokeColor="@color/gold_card_stroke"
+                app:strokeWidth="1dp">
 
-                <TextView
-                    android:id="@+id/tvMalaHeader"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:letterSpacing="0.12"
-                    android:text="CURRENT MALA PROGRESS"
-                    android:textColor="@color/text_muted"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-
-                <!-- Big Current Bead Count -->
-                <TextView
-                    android:id="@+id/tvMalaProgress"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="0"
-                    android:textColor="@color/gold_accent"
-                    android:textSize="88sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvMalaTarget"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Target: 108 beads (1 Mala)"
-                    android:textColor="@color/text_muted"
-                    android:textSize="14sp" />
-
-                <!-- Progress Bar -->
-                <com.google.android.material.progressindicator.LinearProgressIndicator
-                    android:id="@+id/malaProgressBar"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:max="108"
-                    android:progress="0"
-                    app:indicatorColor="@color/gold_accent"
-                    app:trackColor="@color/gold_card_stroke"
-                    app:trackCornerRadius="4dp"
-                    app:trackThickness="8dp" />
+                    android:orientation="vertical"
+                    android:padding="12dp">
 
-                <!-- Action Buttons: Reset & Sync -->
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:orientation="horizontal">
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnResetToday"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="10dp"
-                        android:text="Reset Mala"
+                        android:text="🏆 Lifetime Mala"
                         android:textColor="@color/text_muted"
-                        app:strokeColor="@color/gold_card_stroke" />
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnSyncDevice"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    <TextView
+                        android:id="@+id/tvLifetimeMala"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Sync Device"
+                        android:layout_marginTop="4dp"
+                        android:text="0"
                         android:textColor="@color/gold_accent"
-                        app:strokeColor="@color/gold_card_stroke" />
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
                 </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
 
         <!-- Settings & Vibration Card -->
         <com.google.android.material.card.MaterialCardView
@@ -365,13 +474,13 @@
                             android:layout_height="wrap_content"
                             android:text="Vibrate on 108 (Mala Complete)"
                             android:textColor="@color/gold_text"
-                            android:textSize="14sp"
+                            android:textSize="13sp"
                             android:textStyle="bold" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Celebration vibration pulse when 108 is reached"
+                            android:text="Triple wave vibration when reaching 108"
                             android:textColor="@color/text_muted"
                             android:textSize="11sp" />
                     </LinearLayout>
@@ -403,9 +512,9 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Vibrate on every click"
+                        android:text="Vibrate on each click"
                         android:textColor="@color/gold_text"
-                        android:textSize="14sp" />
+                        android:textSize="13sp" />
 
                     <com.google.android.material.switchmaterial.SwitchMaterial
                         android:id="@+id/switchClickVibration"
@@ -414,31 +523,8 @@
                         android:checked="true" />
                 </LinearLayout>
 
-                <View
-                    android:id="@+id/divider2"
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="10dp"
-                    android:layout_marginBottom="10dp"
-                    android:background="@color/gold_card_stroke" />
+                <!-- Clean Settings: Only Vibration Controls -->
 
-                <!-- BLE Packet Inspector -->
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Raw BLE Packet Data:"
-                    android:textColor="@color/text_muted"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/lastPacketText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:fontFamily="monospace"
-                    android:text="Waiting for device clicks..."
-                    android:textColor="@color/gold_accent"
-                    android:textSize="12sp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
