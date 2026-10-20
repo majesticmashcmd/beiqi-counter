@@ -92,6 +92,10 @@ class CounterRepository(context: Context) {
             list.add(updated)
         }
         saveAllCounters(list)
+
+        // Save daily history for weekly chart
+        val today = getTodayString()
+        prefs.edit().putInt("hist_${updated.id}_$today", updated.dailyMala).apply()
     }
 
     fun addCounter(name: String, mantra: String = "", beadTarget: Int = 108, imageUri: String? = null): CounterProfile {
@@ -124,11 +128,11 @@ class CounterRepository(context: Context) {
         prefs.edit().putString("active_counter_id", id).apply()
     }
 
-    fun recordClick(): Pair<CounterProfile, Boolean> {
+    fun recordClick(): ClickResult {
         val active = getActiveCounter()
-        val malaCompleted = active.registerClick(getTodayString())
+        val result = active.registerClick(getTodayString())
         saveActiveCounter(active)
-        return Pair(active, malaCompleted)
+        return result
     }
 
     fun undoClick(): CounterProfile {
@@ -145,6 +149,51 @@ class CounterRepository(context: Context) {
         return active
     }
 
+    // Weekly history (last 7 days)
+    fun getWeeklyHistory(counterId: String): List<DayHistoryItem> {
+        val list = mutableListOf<DayHistoryItem>()
+        val cal = Calendar.getInstance()
+        val keyFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val dayLabelFormat = SimpleDateFormat("EEE", Locale.getDefault())
+
+        val active = getActiveCounter()
+        val todayStr = keyFormat.format(Date())
+
+        for (i in 6 downTo 0) {
+            val dateCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
+            val key = keyFormat.format(dateCal.time)
+            val dayLabel = dayLabelFormat.format(dateCal.time)
+
+            val malas = if (key == todayStr) {
+                active.dailyMala
+            } else {
+                prefs.getInt("hist_${counterId}_$key", 0)
+            }
+            list.add(DayHistoryItem(dayLabel = dayLabel, dateKey = key, malas = malas, isToday = (i == 0)))
+        }
+        return list
+    }
+
+    fun generateShareText(): String {
+        val active = getActiveCounter()
+        val today = getTodayString()
+        return buildString {
+            append("📿 Daily Japa Sadhana Summary\n")
+            append("✨ Counter: ${active.name}\n")
+            if (active.mantra.isNotEmpty()) {
+                append("🕉️ Mantra: ${active.mantra}\n")
+            }
+            append("📅 Date: $today\n")
+            append("────────────────────\n")
+            append("📿 Beads Today: %,d (%d Malas)\n".format(active.dailyCount, active.dailyMala))
+            append("🏆 Lifetime Beads: %,d (%d Malas)\n".format(active.lifetimeCount, active.lifetimeMala))
+            append("🔥 Chanting Streak: ${active.streakDays} Days\n")
+            append("⏱️ Duration: ${active.getFormattedDuration()}\n")
+            append("────────────────────\n")
+            append("Chanted with BEIQI-ST Smart Ring on Daily Japa 🙏")
+        }
+    }
+
     var vibrateOnClick: Boolean
         get() = prefs.getBoolean("vibrate_on_click", true)
         set(value) = prefs.edit().putBoolean("vibrate_on_click", value).apply()
@@ -152,6 +201,10 @@ class CounterRepository(context: Context) {
     var vibrateOnMala: Boolean
         get() = prefs.getBoolean("vibrate_on_mala", true)
         set(value) = prefs.edit().putBoolean("vibrate_on_mala", value).apply()
+
+    var vibrateOnQuarterMala: Boolean
+        get() = prefs.getBoolean("vibrate_on_quarter", true)
+        set(value) = prefs.edit().putBoolean("vibrate_on_quarter", value).apply()
 
     var soundOnMala: Boolean
         get() = prefs.getBoolean("sound_on_mala", true)
@@ -164,6 +217,10 @@ class CounterRepository(context: Context) {
     var keepScreenAwake: Boolean
         get() = prefs.getBoolean("keep_screen_awake", false)
         set(value) = prefs.edit().putBoolean("keep_screen_awake", value).apply()
+
+    var backgroundCountingEnabled: Boolean
+        get() = prefs.getBoolean("bg_counting_enabled", true)
+        set(value) = prefs.edit().putBoolean("bg_counting_enabled", value).apply()
 
     var currentTheme: String
         get() = prefs.getString("current_theme", THEME_GOLD) ?: THEME_GOLD
@@ -185,3 +242,10 @@ class CounterRepository(context: Context) {
             .apply()
     }
 }
+
+data class DayHistoryItem(
+    val dayLabel: String,
+    val dateKey: String,
+    val malas: Int,
+    val isToday: Boolean
+)

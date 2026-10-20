@@ -1,10 +1,13 @@
 package com.beiqi.counter
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.net.Uri
@@ -12,7 +15,9 @@ import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.ScaleAnimation
 import android.widget.EditText
@@ -41,9 +46,17 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val allGranted = permissions.entries.all { it.value }
-        if (allGranted) {
+        val connectGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            permissions[Manifest.permission.BLUETOOTH_CONNECT] == true
+        } else {
+            permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        }
+
+        if (connectGranted) {
             bleManager.connect()
+            if (repository.backgroundCountingEnabled) {
+                JapaForegroundService.start(this)
+            }
         } else {
             Toast.makeText(this, "Bluetooth permission needed to connect to BEIQI-ST", Toast.LENGTH_LONG).show()
         }
@@ -81,12 +94,15 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         applyTheme(repository.currentTheme)
         setupUI()
         refreshDashboard()
+
+        if (repository.backgroundCountingEnabled) {
+            JapaForegroundService.start(this)
+        }
     }
 
     override fun onResume() {
         super.onResume()
         refreshDashboard()
-        // Auto-reconnect and query ring when phone is opened / unlocked
         checkPermissionsAndConnect()
     }
 
@@ -97,6 +113,14 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
 
         binding.btnTheme.setOnClickListener {
             showThemeSelector()
+        }
+
+        binding.btnAltarMode.setOnClickListener {
+            enterAltarMode()
+        }
+
+        binding.altarModeOverlay.setOnClickListener {
+            exitAltarMode()
         }
 
         binding.btnSwitchCounter.setOnClickListener {
@@ -123,7 +147,6 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
             showResetMalaDialog()
         }
 
-        // Discreet manual adjusters
         binding.btnMinusOne.setOnClickListener {
             val updated = repository.undoClick()
             updateActiveCounterView(updated)
@@ -136,6 +159,10 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
 
         binding.btnCalibrate.setOnClickListener {
             showButtonDiagnosticDialog()
+        }
+
+        binding.btnShareProgress.setOnClickListener {
+            shareSadhanaSummary()
         }
 
         // Toggles
@@ -154,9 +181,24 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
             repository.vibrateOnMala = isChecked
         }
 
+        binding.switchQuarterHaptics.isChecked = repository.vibrateOnQuarterMala
+        binding.switchQuarterHaptics.setOnCheckedChangeListener { _, isChecked ->
+            repository.vibrateOnQuarterMala = isChecked
+        }
+
         binding.switchMalaSound.isChecked = repository.soundOnMala
         binding.switchMalaSound.setOnCheckedChangeListener { _, isChecked ->
             repository.soundOnMala = isChecked
+        }
+
+        binding.switchBgCounting.isChecked = repository.backgroundCountingEnabled
+        binding.switchBgCounting.setOnCheckedChangeListener { _, isChecked ->
+            repository.backgroundCountingEnabled = isChecked
+            if (isChecked) {
+                JapaForegroundService.start(this)
+            } else {
+                JapaForegroundService.stop(this)
+            }
         }
 
         binding.switchKeepAwake.isChecked = repository.keepScreenAwake
@@ -168,6 +210,36 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         binding.cardLifetimeCount.setOnLongClickListener {
             showResetLifetimeDialog()
             true
+        }
+    }
+
+    private fun enterAltarMode() {
+        val active = repository.getActiveCounter()
+        binding.altarModeOverlay.visibility = View.VISIBLE
+        updateAltarModeView(active)
+    }
+
+    private fun exitAltarMode() {
+        binding.altarModeOverlay.visibility = View.GONE
+    }
+
+    private fun updateAltarModeView(counter: CounterProfile) {
+        binding.altarCounterName.text = counter.name
+        binding.altarMantra.text = counter.mantra
+        binding.altarCurrentBeads.text = counter.currentBeads.toString()
+        binding.altarMalaStatus.text = "Bead ${counter.currentBeads} of ${counter.beadTarget} • ${counter.dailyMala} Malas Today"
+        binding.altarProgressBar.max = counter.beadTarget
+        binding.altarProgressBar.progress = counter.currentBeads
+        binding.altarPaceText.text = counter.getPaceDescription()
+
+        if (!counter.imageUri.isNullOrEmpty()) {
+            try {
+                binding.altarImage.setImageURI(Uri.parse(counter.imageUri))
+            } catch (e: Exception) {
+                binding.altarImage.setImageResource(R.drawable.ic_launcher)
+            }
+        } else {
+            binding.altarImage.setImageResource(R.drawable.ic_launcher)
         }
     }
 
@@ -191,6 +263,7 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         binding.malaProgressBar.max = counter.beadTarget
         binding.malaProgressBar.progress = counter.currentBeads
         binding.tvMalaTarget.text = "Bead ${counter.currentBeads} of ${counter.beadTarget} (1 Mala)"
+        binding.tvChantPacing.text = "${counter.getPaceDescription()} • ${counter.getFormattedDuration()}"
 
         // Sacred Mantra Text
         if (counter.mantra.isNotEmpty()) {
@@ -219,6 +292,89 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         } else {
             binding.counterImage.setImageResource(R.drawable.ic_launcher)
         }
+
+        // Render Weekly 7-Day Consistency Bar Chart
+        renderWeeklyBarChart(counter.id)
+
+        // If Altar Mode is currently active, keep it updated
+        if (binding.altarModeOverlay.visibility == View.VISIBLE) {
+            updateAltarModeView(counter)
+        }
+
+        // Keep Background Lock Screen notification updated
+        if (repository.backgroundCountingEnabled) {
+            JapaForegroundService.updateProgress(this, counter)
+        }
+    }
+
+    private fun renderWeeklyBarChart(counterId: String) {
+        binding.weeklyBarContainer.removeAllViews()
+        val history = repository.getWeeklyHistory(counterId)
+        val maxMalas = (history.maxOfOrNull { it.malas } ?: 1).coerceAtLeast(1)
+
+        val accentColor = ContextCompat.getColor(this, resolveCurrentAccent())
+        val cardStrokeColor = ContextCompat.getColor(this, resolveCurrentCardStroke())
+        val textMutedColor = ContextCompat.getColor(this, R.color.text_muted)
+        val density = resources.displayMetrics.density
+
+        for (item in history) {
+            val col = LinearLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            }
+
+            // Mala count label on top of bar
+            val tvCount = TextView(this).apply {
+                text = "${item.malas}"
+                textSize = 10f
+                gravity = Gravity.CENTER
+                setTextColor(if (item.isToday) accentColor else textMutedColor)
+            }
+            col.addView(tvCount)
+
+            // The vertical bar
+            val barHeightDp = ((item.malas.toFloat() / maxMalas) * 38f).coerceAtLeast(4f)
+            val barHeightPx = (barHeightDp * density).toInt()
+
+            val barView = View(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    (14 * density).toInt(),
+                    barHeightPx
+                ).apply {
+                    topMargin = (2 * density).toInt()
+                    bottomMargin = (4 * density).toInt()
+                }
+
+                background = GradientDrawable().apply {
+                    cornerRadius = 6 * density
+                    setColor(if (item.isToday) accentColor else cardStrokeColor)
+                }
+            }
+            col.addView(barView)
+
+            // Day label below bar (Mon, Tue, etc.)
+            val tvDay = TextView(this).apply {
+                text = item.dayLabel
+                textSize = 10f
+                gravity = Gravity.CENTER
+                setTextColor(if (item.isToday) accentColor else textMutedColor)
+                if (item.isToday) setTypeface(null, android.graphics.Typeface.BOLD)
+            }
+            col.addView(tvDay)
+
+            binding.weeklyBarContainer.addView(col)
+        }
+    }
+
+    private fun shareSadhanaSummary() {
+        val text = repository.generateShareText()
+        val sendIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TEXT, text)
+            type = "text/plain"
+        }
+        startActivity(Intent.createChooser(sendIntent, "Share Daily Sadhana"))
     }
 
     private fun showSyncDialog() {
@@ -251,11 +407,6 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
             .show()
     }
 
-    /**
-     * Interactive Button Diagnostic & Calibration Tool.
-     * Allows user to press middle button and side buttons and see live on-screen
-     * confirmation that side buttons are blocked while middle button counts.
-     */
     private fun showButtonDiagnosticDialog() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -361,8 +512,15 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         }
         val nameInput = EditText(this).apply { hint = "Counter Name (e.g. Sewing, Chanting)" }
         val mantraInput = EditText(this).apply { hint = "Sacred Mantra (e.g. Om Namah Shivaya)" }
+        val targetInput = EditText(this).apply {
+            hint = "Target beads for 1 Mala"
+            setText("108")
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        }
+
         layout.addView(nameInput)
         layout.addView(mantraInput)
+        layout.addView(targetInput)
 
         val quickMantraLabel = TextView(this).apply {
             text = "Quick Presets:"
@@ -373,25 +531,27 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         layout.addView(quickMantraLabel)
 
         val presets = listOf(
-            "🕉️ Om Namah Shivaya" to "Meditation",
-            "📿 Hare Krishna" to "Japa",
-            "🌺 Gayatri Mantra" to "Chanting",
-            "☸️ Om Mani Padme Hum" to "Buddhism",
-            "🌸 Waheguru" to "Simran",
-            "🧵 Sewing & Crafts" to "Crafts"
+            Triple("🕉️ Om Namah Shivaya", "Meditation", 108),
+            Triple("📿 Hare Krishna", "Japa", 108),
+            Triple("🌺 Gayatri Mantra", "Chanting", 108),
+            Triple("☸️ Om Mani Padme Hum", "Buddhism", 108),
+            Triple("🌸 Waheguru", "Simran", 108),
+            Triple("📿 Wrist Mala (27)", "Wrist Japa", 27),
+            Triple("🧵 Sewing & Crafts (50)", "Crafts", 50)
         )
 
-        for ((presetMantra, defaultName) in presets) {
+        for ((presetMantra, defaultName, targetBeads) in presets) {
             val presetBtn = com.google.android.material.button.MaterialButton(this).apply {
                 text = presetMantra
                 textSize = 12f
                 isAllCaps = false
                 strokeWidth = 0
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.gold_accent))
+                setBackgroundColor(Color.TRANSPARENT)
+                setTextColor(ContextCompat.getColor(this@MainActivity, resolveCurrentAccent()))
                 setOnClickListener {
                     nameInput.setText(defaultName)
                     mantraInput.setText(presetMantra)
+                    targetInput.setText(targetBeads.toString())
                 }
             }
             layout.addView(presetBtn)
@@ -403,8 +563,9 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
             .setPositiveButton("Create") { _, _ ->
                 val name = nameInput.text.toString().trim()
                 val mantra = mantraInput.text.toString().trim()
+                val target = targetInput.text.toString().toIntOrNull() ?: 108
                 if (name.isNotEmpty()) {
-                    val created = repository.addCounter(name, mantra)
+                    val created = repository.addCounter(name, mantra, target)
                     refreshDashboard()
                     Toast.makeText(this, "Created: ${created.name}", Toast.LENGTH_SHORT).show()
                 }
@@ -425,10 +586,17 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         }
         val mantraInput = EditText(this).apply {
             setText(active.mantra)
-            hint = "Sacred Mantra (e.g. Om Namah Shivaya)"
+            hint = "Sacred Mantra"
         }
+        val targetInput = EditText(this).apply {
+            setText(active.beadTarget.toString())
+            hint = "Bead Target for 1 Mala"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        }
+
         layout.addView(nameInput)
         layout.addView(mantraInput)
+        layout.addView(targetInput)
 
         AlertDialog.Builder(this)
             .setTitle("Edit Counter")
@@ -436,9 +604,11 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
             .setPositiveButton("Save") { _, _ ->
                 val newName = nameInput.text.toString().trim()
                 val newMantra = mantraInput.text.toString().trim()
+                val newTarget = targetInput.text.toString().toIntOrNull() ?: 108
                 if (newName.isNotEmpty()) {
                     active.name = newName
                     active.mantra = newMantra
+                    active.beadTarget = newTarget.coerceAtLeast(1)
                     repository.saveActiveCounter(active)
                     refreshDashboard()
                 }
@@ -459,7 +629,7 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
     private fun showResetMalaDialog() {
         AlertDialog.Builder(this)
             .setTitle("Reset Current Mala?")
-            .setMessage("Reset the active 0-108 bead count back to 0? Daily and Lifetime stats remain untouched.")
+            .setMessage("Reset the active bead progress back to 0? Daily and Lifetime stats remain untouched.")
             .setPositiveButton("Reset Mala") { _, _ ->
                 val active = repository.getActiveCounter()
                 active.resetMalaOnly()
@@ -505,6 +675,24 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
             .show()
     }
 
+    private fun resolveCurrentAccent(): Int {
+        return when (repository.currentTheme) {
+            CounterRepository.THEME_OBSIDIAN -> R.color.obsidian_accent
+            CounterRepository.THEME_EMERALD -> R.color.emerald_accent
+            CounterRepository.THEME_LOTUS -> R.color.lotus_accent
+            else -> R.color.gold_accent
+        }
+    }
+
+    private fun resolveCurrentCardStroke(): Int {
+        return when (repository.currentTheme) {
+            CounterRepository.THEME_OBSIDIAN -> R.color.obsidian_card_stroke
+            CounterRepository.THEME_EMERALD -> R.color.emerald_card_stroke
+            CounterRepository.THEME_LOTUS -> R.color.lotus_card_stroke
+            else -> R.color.gold_card_stroke
+        }
+    }
+
     private fun applyTheme(themeName: String) {
         val (bgColor, cardColor, strokeColor, accentColor, textColor) = when (themeName) {
             CounterRepository.THEME_OBSIDIAN -> ThemeColors(
@@ -531,13 +719,14 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         val accentResolved = ContextCompat.getColor(this, accentColor)
         val textResolved = ContextCompat.getColor(this, textColor)
 
+        binding.rootFrameLayout.setBackgroundColor(bgResolved)
         binding.mainScrollView.setBackgroundColor(bgResolved)
         window.statusBarColor = bgResolved
 
         listOf(
             binding.statusCard, binding.counterHeroCard, binding.cardDailyCount,
             binding.cardDailyMala, binding.cardLifetimeCount, binding.cardLifetimeMala,
-            binding.settingsCard
+            binding.cardWeeklyHistory, binding.settingsCard
         ).forEach {
             it.setCardBackgroundColor(cardResolved)
             it.strokeColor = strokeResolved
@@ -555,15 +744,21 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         binding.statusText.setTextColor(textResolved)
         binding.badgeCameraBg.setBackgroundColor(accentResolved)
 
+        // Settings labels
         binding.tvMalaVibrateTitle.setTextColor(textResolved)
+        binding.tvQuarterVibrateTitle.setTextColor(textResolved)
         binding.tvMalaSoundTitle.setTextColor(textResolved)
         binding.tvClickVibrateTitle.setTextColor(textResolved)
         binding.tvClickSoundTitle.setTextColor(textResolved)
+        binding.tvBgCountingTitle.setTextColor(textResolved)
         binding.tvKeepAwakeTitle.setTextColor(textResolved)
         binding.tvCalibrationTitle.setTextColor(textResolved)
 
+        // Buttons
         binding.btnTheme.setTextColor(accentResolved)
         binding.btnTheme.strokeColor = ColorStateList.valueOf(strokeResolved)
+        binding.btnAltarMode.setTextColor(accentResolved)
+        binding.btnAltarMode.strokeColor = ColorStateList.valueOf(strokeResolved)
         binding.btnConnect.setTextColor(accentResolved)
         binding.btnSwitchCounter.setTextColor(textResolved)
         binding.btnSwitchCounter.strokeColor = ColorStateList.valueOf(strokeResolved)
@@ -576,13 +771,28 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         binding.btnCalibrate.setTextColor(accentResolved)
         binding.btnCalibrate.strokeColor = ColorStateList.valueOf(strokeResolved)
         binding.btnPlusOne.setTextColor(accentResolved)
+        binding.btnShareProgress.setTextColor(accentResolved)
 
         binding.malaProgressBar.setIndicatorColor(accentResolved)
         binding.malaProgressBar.trackColor = strokeResolved
 
-        listOf(binding.divider1, binding.divider2, binding.divider3, binding.divider4, binding.divider5).forEach {
+        // Altar mode colors
+        binding.altarCounterName.setTextColor(textResolved)
+        binding.altarMantra.setTextColor(accentResolved)
+        binding.altarCurrentBeads.setTextColor(accentResolved)
+        binding.altarProgressBar.setIndicatorColor(accentResolved)
+        binding.altarProgressBar.trackColor = strokeResolved
+        binding.altarImage.strokeColor = ColorStateList.valueOf(accentResolved)
+
+        listOf(
+            binding.divider1, binding.divider2, binding.divider3,
+            binding.divider4, binding.divider5, binding.divider6, binding.divider7
+        ).forEach {
             it.setBackgroundColor(strokeResolved)
         }
+
+        val active = repository.getActiveCounter()
+        renderWeeklyBarChart(active.id)
     }
 
     private data class ThemeColors(
@@ -606,6 +816,12 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         } else {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
 
@@ -649,10 +865,11 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
 
     /**
      * Middle Button Click from the ring.
-     * Side buttons are ignored.
+     * Side buttons are strictly ignored.
      */
     override fun onMiddleButtonClick() {
-        val (counter, malaCompleted) = repository.recordClick()
+        val result = repository.recordClick()
+        val counter = result.counter
         updateActiveCounterView(counter)
 
         val anim = ScaleAnimation(
@@ -666,14 +883,19 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         }
         binding.tvCurrentBeads.startAnimation(anim)
 
-        if (malaCompleted) {
+        if (result.malaCompleted) {
             if (repository.vibrateOnMala) {
                 triggerMalaCelebrationVibration()
             }
             if (repository.soundOnMala) {
                 playTempleBellChime()
             }
-            Toast.makeText(this, "📿 Mala Completed! (108 Beads) for ${counter.name}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "📿 Mala Completed! (${counter.beadTarget} Beads) for ${counter.name}", Toast.LENGTH_LONG).show()
+        } else if (result.milestoneQuarter in 1..3 && repository.vibrateOnQuarterMala) {
+            triggerQuarterMilestoneVibration(result.milestoneQuarter)
+            if (repository.soundOnClick) {
+                playBeadClickSound()
+            }
         } else {
             if (repository.vibrateOnClick) {
                 triggerClickVibration()
@@ -700,6 +922,20 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         } else {
             @Suppress("DEPRECATION")
             vibrator?.vibrate(35)
+        }
+    }
+
+    private fun triggerQuarterMilestoneVibration(quarter: Int) {
+        val pattern = when (quarter) {
+            1 -> longArrayOf(0, 50)
+            2 -> longArrayOf(0, 50, 80, 50)
+            else -> longArrayOf(0, 50, 80, 50, 80, 50)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, -1))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator?.vibrate(pattern, -1)
         }
     }
 

@@ -16,7 +16,9 @@ data class CounterProfile(
     var lifetimeMala: Long = 0L,
     var lastDate: String = "",
     var beadTarget: Int = 108,
-    var streakDays: Int = 1
+    var streakDays: Int = 1,
+    var todayChantSeconds: Long = 0L,
+    var lastClickTimestamp: Long = 0L
 ) {
     fun checkAndResetDaily(today: String) {
         if (lastDate.isEmpty()) {
@@ -26,7 +28,6 @@ data class CounterProfile(
         }
 
         if (lastDate != today) {
-            // Check if lastDate was yesterday to update streak
             try {
                 val format = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 val lastTime = format.parse(lastDate)?.time ?: 0L
@@ -43,26 +44,63 @@ data class CounterProfile(
 
             dailyCount = 0
             dailyMala = 0
+            todayChantSeconds = 0L
             lastDate = today
         }
     }
 
-    fun registerClick(today: String): Boolean {
+    /**
+     * Records a click and returns:
+     * - malaCompleted: Boolean (true when full target is reached)
+     * - milestoneQuarter: Int (1 for 25%, 2 for 50%, 3 for 75%, 4 for 100%, 0 otherwise)
+     */
+    fun registerClick(today: String): ClickResult {
         checkAndResetDaily(today)
+
+        val now = System.currentTimeMillis()
+        if (lastClickTimestamp > 0L) {
+            val deltaSeconds = (now - lastClickTimestamp) / 1000L
+            // If clicks are spaced within 15 seconds, count as active continuous chanting
+            if (deltaSeconds in 1..15) {
+                todayChantSeconds += deltaSeconds
+            } else if (deltaSeconds > 15) {
+                todayChantSeconds += 2 // small buffer for session resume
+            }
+        } else {
+            todayChantSeconds += 2
+        }
+        lastClickTimestamp = now
 
         dailyCount++
         lifetimeCount++
         currentBeads++
 
         var malaCompleted = false
+        var milestoneQuarter = 0
+
+        val q1 = beadTarget * 1 / 4
+        val q2 = beadTarget * 2 / 4
+        val q3 = beadTarget * 3 / 4
+
         if (currentBeads >= beadTarget) {
             currentBeads = 0
             dailyMala++
             lifetimeMala++
             malaCompleted = true
+            milestoneQuarter = 4
+        } else if (currentBeads == q1) {
+            milestoneQuarter = 1
+        } else if (currentBeads == q2) {
+            milestoneQuarter = 2
+        } else if (currentBeads == q3) {
+            milestoneQuarter = 3
         }
 
-        return malaCompleted
+        return ClickResult(
+            counter = this,
+            malaCompleted = malaCompleted,
+            milestoneQuarter = milestoneQuarter
+        )
     }
 
     fun undoClick(today: String) {
@@ -75,7 +113,7 @@ data class CounterProfile(
         } else if (dailyMala > 0) {
             dailyMala--
             if (lifetimeMala > 0) lifetimeMala--
-            currentBeads = beadTarget - 1
+            currentBeads = (beadTarget - 1).coerceAtLeast(0)
         }
     }
 
@@ -84,15 +122,38 @@ data class CounterProfile(
         val diff = if (ringCount >= dailyCount) ringCount - dailyCount else 0
 
         dailyCount = ringCount
-        dailyMala = ringCount / beadTarget
-        currentBeads = ringCount % beadTarget
+        dailyMala = if (beadTarget > 0) ringCount / beadTarget else 0
+        currentBeads = if (beadTarget > 0) ringCount % beadTarget else 0
 
         lifetimeCount += diff
-        lifetimeMala = (lifetimeCount / beadTarget)
+        lifetimeMala = if (beadTarget > 0) (lifetimeCount / beadTarget) else 0L
     }
 
     fun resetMalaOnly() {
         currentBeads = 0
+    }
+
+    fun getPaceDescription(): String {
+        if (dailyCount < 5 || todayChantSeconds < 10) {
+            return "Pacing calculating..."
+        }
+        val mins = todayChantSeconds / 60.0
+        val beadsPerMin = (dailyCount / mins).toInt()
+        val minsPerMala = if (beadsPerMin > 0) beadTarget.toDouble() / beadsPerMin else 0.0
+        return String.format(Locale.getDefault(), "⏱️ ~%.1fm / Mala • %d beads/min", minsPerMala, beadsPerMin)
+    }
+
+    fun getFormattedDuration(): String {
+        val totalSecs = todayChantSeconds
+        val mins = totalSecs / 60
+        val secs = totalSecs % 60
+        return if (mins >= 60) {
+            val hours = mins / 60
+            val remMins = mins % 60
+            "${hours}h ${remMins}m today"
+        } else {
+            "${mins}m ${secs}s today"
+        }
     }
 
     fun toJsonObject(): JSONObject {
@@ -109,6 +170,8 @@ data class CounterProfile(
             put("lastDate", lastDate)
             put("beadTarget", beadTarget)
             put("streakDays", streakDays)
+            put("todayChantSeconds", todayChantSeconds)
+            put("lastClickTimestamp", lastClickTimestamp)
         }
     }
 
@@ -126,8 +189,16 @@ data class CounterProfile(
                 lifetimeMala = json.optLong("lifetimeMala", 0L),
                 lastDate = json.optString("lastDate", ""),
                 beadTarget = json.optInt("beadTarget", 108),
-                streakDays = json.optInt("streakDays", 1)
+                streakDays = json.optInt("streakDays", 1),
+                todayChantSeconds = json.optLong("todayChantSeconds", 0L),
+                lastClickTimestamp = json.optLong("lastClickTimestamp", 0L)
             )
         }
     }
 }
+
+data class ClickResult(
+    val counter: CounterProfile,
+    val malaCompleted: Boolean,
+    val milestoneQuarter: Int // 1 (25%), 2 (50%), 3 (75%), 4 (100% Mala), 0 otherwise
+)
