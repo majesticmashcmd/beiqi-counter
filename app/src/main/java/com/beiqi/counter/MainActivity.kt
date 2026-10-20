@@ -742,7 +742,7 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         binding.tvLifetimeMala.setTextColor(accentResolved)
         binding.tvStreakBadge.setTextColor(accentResolved)
         binding.statusText.setTextColor(textResolved)
-        binding.badgeCameraBg.setBackgroundColor(accentResolved)
+        binding.badgeCameraBg.backgroundTintList = ColorStateList.valueOf(accentResolved)
 
         // Settings labels
         binding.tvMalaVibrateTitle.setTextColor(textResolved)
@@ -835,28 +835,28 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
     override fun onConnectionStateChanged(state: BleManager.ConnectionState) {
         when (state) {
             BleManager.ConnectionState.DISCONNECTED -> {
-                binding.statusIndicator.setBackgroundColor(ContextCompat.getColor(this, R.color.status_red))
+                binding.statusIndicator.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.status_red))
                 binding.statusText.text = "Disconnected"
-                binding.syncStatusText.text = "Tap Connect"
+                binding.syncStatusText.text = "Tap Connect to pair ring"
                 binding.btnConnect.text = "Connect"
                 binding.tvBatteryStatus.visibility = View.GONE
             }
             BleManager.ConnectionState.CONNECTING -> {
-                binding.statusIndicator.setBackgroundColor(ContextCompat.getColor(this, R.color.status_yellow))
+                binding.statusIndicator.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.status_yellow))
                 binding.statusText.text = "Connecting..."
                 binding.syncStatusText.text = "Pairing with BEIQI-ST"
                 binding.btnConnect.text = "Connecting"
             }
             BleManager.ConnectionState.CONNECTED -> {
-                binding.statusIndicator.setBackgroundColor(ContextCompat.getColor(this, R.color.status_yellow))
+                binding.statusIndicator.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.status_yellow))
                 binding.statusText.text = "Connected"
                 binding.syncStatusText.text = "Syncing services"
                 binding.btnConnect.text = "Disconnect"
             }
             BleManager.ConnectionState.READY -> {
-                binding.statusIndicator.setBackgroundColor(ContextCompat.getColor(this, R.color.status_green))
+                binding.statusIndicator.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.status_green))
                 binding.statusText.text = "Connected & Active"
-                binding.syncStatusText.text = "Ring Ready"
+                binding.syncStatusText.text = "Ring Ready • Auto-sync active"
                 binding.btnConnect.text = "Disconnect"
                 Toast.makeText(this, "Daily Japa Ready! Click your ring", Toast.LENGTH_SHORT).show()
             }

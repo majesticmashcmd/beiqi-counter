@@ -11,16 +11,22 @@
         android:id="@+id/mainScrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:overScrollMode="never"
+        android:scrollbars="none">
 
         <LinearLayout
             android:id="@+id/rootContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:paddingStart="18dp"
+            android:paddingTop="18dp"
+            android:paddingEnd="18dp"
+            android:paddingBottom="36dp">
 
-            <!-- Top Header: Daily Japa -->
+            <!-- Top Header: App Branding & Quick Actions -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -75,39 +81,38 @@
                     android:id="@+id/btnAltarMode"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="38dp"
                     android:layout_marginEnd="6dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
                     android:text="🛕 Altar"
                     android:textColor="@color/gold_accent"
+                    android:textSize="12sp"
+                    app:cornerRadius="19dp"
                     app:strokeColor="@color/gold_card_stroke" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnTheme"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="6dp"
-                    android:text="Theme"
+                    android:layout_height="38dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="🎨 Theme"
                     android:textColor="@color/gold_accent"
+                    android:textSize="12sp"
+                    app:cornerRadius="19dp"
                     app:strokeColor="@color/gold_card_stroke" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnConnect"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Connect"
-                    android:textColor="@color/gold_accent" />
             </LinearLayout>
 
-            <!-- Status Card -->
+            <!-- Integrated Compact Ring Status Bar -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/statusCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 app:cardBackgroundColor="@color/gold_card"
-                app:cardCornerRadius="12dp"
+                app:cardCornerRadius="14dp"
                 app:strokeColor="@color/gold_card_stroke"
                 app:strokeWidth="1dp">
 
@@ -116,40 +121,63 @@
                     android:layout_height="wrap_content"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
-                    android:padding="12dp">
+                    android:paddingStart="14dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="8dp">
 
                     <View
                         android:id="@+id/statusIndicator"
-                        android:layout_width="10dp"
-                        android:layout_height="10dp"
-                        android:background="@color/status_red" />
+                        android:layout_width="9dp"
+                        android:layout_height="9dp"
+                        android:background="@drawable/circle_shape"
+                        android:backgroundTint="@color/status_red" />
 
-                    <TextView
-                        android:id="@+id/statusText"
+                    <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="10dp"
                         android:layout_weight="1"
-                        android:text="Disconnected"
-                        android:textColor="@color/gold_text"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
+                        android:orientation="vertical">
 
-                    <TextView
-                        android:id="@+id/syncStatusText"
+                        <TextView
+                            android:id="@+id/statusText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Disconnected"
+                            android:textColor="@color/gold_text"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/syncStatusText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Tap Connect to pair ring"
+                            android:textColor="@color/text_muted"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnConnect"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Ring Ready"
-                        android:textColor="@color/text_muted"
-                        android:textSize="12sp" />
+                        android:layout_height="34dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:text="Connect"
+                        android:textColor="@color/gold_accent"
+                        android:textSize="12sp"
+                        app:cornerRadius="17dp"
+                        app:strokeColor="@color/gold_card_stroke" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Purpose / Counter Selector Toolbar -->
+            <!-- Counter Purpose Selector Toolbar -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="12dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -157,42 +185,53 @@
                     android:id="@+id/btnSwitchCounter"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="40dp"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
                     android:text="📿 Meditation (Japa) ▾"
                     android:textColor="@color/gold_text"
                     android:textSize="13sp"
+                    app:cornerRadius="20dp"
                     app:strokeColor="@color/gold_card_stroke" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnAddCounter"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="40dp"
                     android:layout_marginEnd="6dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
                     android:text="+ New"
                     android:textColor="@color/gold_accent"
+                    android:textSize="12sp"
+                    app:cornerRadius="20dp"
                     app:strokeColor="@color/gold_card_stroke" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnEditCounter"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="40dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
                     android:text="✎ Edit"
                     android:textColor="@color/text_muted"
+                    android:textSize="12sp"
+                    app:cornerRadius="20dp"
                     app:strokeColor="@color/gold_card_stroke" />
             </LinearLayout>
 
-            <!-- Center Hero Bead Counter with Custom Photo -->
+            <!-- Center Hero Bead Counter Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/counterHeroCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 app:cardBackgroundColor="@color/gold_card"
-                app:cardCornerRadius="22dp"
+                app:cardCornerRadius="24dp"
                 app:strokeColor="@color/gold_card_stroke"
                 app:strokeWidth="1dp">
 
@@ -201,38 +240,42 @@
                     android:layout_height="wrap_content"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:padding="22dp">
+                    android:paddingStart="20dp"
+                    android:paddingTop="22dp"
+                    android:paddingEnd="20dp"
+                    android:paddingBottom="22dp">
 
-                    <!-- User Picture / Avatar with Border -->
+                    <!-- User Photo Avatar with Border & Camera Badge -->
                     <FrameLayout
                         android:id="@+id/imageContainer"
-                        android:layout_width="84dp"
-                        android:layout_height="84dp">
+                        android:layout_width="92dp"
+                        android:layout_height="92dp">
 
                         <com.google.android.material.imageview.ShapeableImageView
                             android:id="@+id/counterImage"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
-                            android:background="@color/gold_card_stroke"
                             android:scaleType="centerCrop"
                             android:src="@drawable/ic_launcher"
-                            app:shapeAppearanceOverlay="@style/ShapeAppearance.MaterialComponents.MediumComponent" />
+                            app:shapeAppearanceOverlay="@style/ShapeAppearance.MaterialComponents.MediumComponent"
+                            app:strokeColor="@color/gold_accent"
+                            app:strokeWidth="2dp" />
 
-                        <View
+                        <FrameLayout
                             android:id="@+id/badgeCameraBg"
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
                             android:layout_gravity="bottom|end"
-                            android:background="@color/gold_accent" />
+                            android:background="@drawable/circle_shape"
+                            android:backgroundTint="@color/gold_accent">
 
-                        <TextView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:layout_gravity="bottom|end"
-                            android:gravity="center"
-                            android:text="📷"
-                            android:textColor="@color/black"
-                            android:textSize="12sp" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center"
+                                android:text="📷"
+                                android:textSize="11sp" />
+                        </FrameLayout>
                     </FrameLayout>
 
                     <TextView
@@ -240,13 +283,13 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
-                        android:letterSpacing="0.06"
+                        android:letterSpacing="0.04"
                         android:text="Meditation (Japa)"
                         android:textColor="@color/gold_text"
-                        android:textSize="18sp"
+                        android:textSize="19sp"
                         android:textStyle="bold" />
 
-                    <!-- Sacred Mantra or Intention text -->
+                    <!-- Sacred Mantra -->
                     <TextView
                         android:id="@+id/tvMantra"
                         android:layout_width="wrap_content"
@@ -255,31 +298,41 @@
                         android:fontFamily="serif"
                         android:text="Om Namah Shivaya"
                         android:textColor="@color/gold_accent"
-                        android:textSize="13sp"
+                        android:textSize="14sp"
                         android:textStyle="italic" />
 
-                    <!-- Bead Adjuster Row: [-1 Undo] [Current Beads] [+1 Bead] -->
+                    <!-- Bead Counter with Intuitive Symmetrical Controls -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
                         android:gravity="center"
                         android:orientation="horizontal">
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnMinusOne"
-                            style="@style/Widget.MaterialComponents.Button.TextButton"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="−1 Undo"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:insetStart="0dp"
+                            android:insetTop="0dp"
+                            android:insetEnd="0dp"
+                            android:insetBottom="0dp"
+                            android:padding="0dp"
+                            android:text="−1"
                             android:textColor="@color/text_muted"
-                            android:textSize="12sp" />
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            app:cornerRadius="22dp"
+                            app:strokeColor="@color/gold_card_stroke" />
 
                         <TextView
                             android:id="@+id/tvCurrentBeads"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="14dp"
-                            android:layout_marginEnd="14dp"
+                            android:layout_marginStart="18dp"
+                            android:layout_marginEnd="18dp"
+                            android:letterSpacing="-0.02"
                             android:text="0"
                             android:textColor="@color/gold_accent"
                             android:textSize="84sp"
@@ -287,12 +340,20 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnPlusOne"
-                            style="@style/Widget.MaterialComponents.Button.TextButton"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="+1 Bead"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:insetStart="0dp"
+                            android:insetTop="0dp"
+                            android:insetEnd="0dp"
+                            android:insetBottom="0dp"
+                            android:padding="0dp"
+                            android:text="+1"
                             android:textColor="@color/gold_accent"
-                            android:textSize="12sp" />
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            app:cornerRadius="22dp"
+                            app:strokeColor="@color/gold_accent" />
                     </LinearLayout>
 
                     <TextView
@@ -326,7 +387,7 @@
                         app:trackCornerRadius="4dp"
                         app:trackThickness="8dp" />
 
-                    <!-- Action Buttons: Sync with Ring & Reset Mala -->
+                    <!-- Balanced Quick Actions: Sync with Ring & Reset Mala -->
                     <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -337,29 +398,37 @@
                             android:id="@+id/btnSyncDevice"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_height="38dp"
                             android:layout_marginEnd="10dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
                             android:text="🔄 Sync with Ring"
                             android:textColor="@color/gold_accent"
+                            android:textSize="12sp"
+                            app:cornerRadius="19dp"
                             app:strokeColor="@color/gold_card_stroke" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnResetMala"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Reset Mala"
+                            android:layout_height="38dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:text="↺ Reset Mala"
                             android:textColor="@color/text_muted"
+                            android:textSize="12sp"
+                            app:cornerRadius="19dp"
                             app:strokeColor="@color/gold_card_stroke" />
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- DASHBOARD HEADER WITH STREAK BADGE & SHARE -->
+            <!-- DASHBOARD SECTION HEADER -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
+                android:layout_marginTop="20dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -368,7 +437,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:letterSpacing="0.1"
+                    android:letterSpacing="0.08"
                     android:text="JAPA DASHBOARD"
                     android:textColor="@color/text_muted"
                     android:textSize="11sp"
@@ -386,14 +455,19 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnShareProgress"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="32dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
                     android:text="📤 Share"
                     android:textColor="@color/gold_accent"
-                    android:textSize="12sp" />
+                    android:textSize="11sp"
+                    app:cornerRadius="16dp"
+                    app:strokeColor="@color/gold_card_stroke" />
             </LinearLayout>
 
+            <!-- 4-METRIC DASHBOARD: Clean Unified 2x2 Grid -->
             <!-- Row 1: Daily Count & Daily Mala -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -409,7 +483,7 @@
                     android:layout_marginEnd="5dp"
                     android:layout_weight="1"
                     app:cardBackgroundColor="@color/gold_card"
-                    app:cardCornerRadius="14dp"
+                    app:cardCornerRadius="16dp"
                     app:strokeColor="@color/gold_card_stroke"
                     app:strokeWidth="1dp">
 
@@ -417,7 +491,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="14dp">
+                        android:padding="16dp">
 
                         <TextView
                             android:id="@+id/tvDailyCountTitle"
@@ -435,7 +509,7 @@
                             android:layout_marginTop="4dp"
                             android:text="0"
                             android:textColor="@color/gold_text"
-                            android:textSize="24sp"
+                            android:textSize="26sp"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -448,7 +522,7 @@
                     android:layout_marginStart="5dp"
                     android:layout_weight="1"
                     app:cardBackgroundColor="@color/gold_card"
-                    app:cardCornerRadius="14dp"
+                    app:cardCornerRadius="16dp"
                     app:strokeColor="@color/gold_card_stroke"
                     app:strokeWidth="1dp">
 
@@ -456,7 +530,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="14dp">
+                        android:padding="16dp">
 
                         <TextView
                             android:id="@+id/tvDailyMalaTitle"
@@ -474,7 +548,7 @@
                             android:layout_marginTop="4dp"
                             android:text="0"
                             android:textColor="@color/gold_accent"
-                            android:textSize="24sp"
+                            android:textSize="26sp"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -495,7 +569,7 @@
                     android:layout_marginEnd="5dp"
                     android:layout_weight="1"
                     app:cardBackgroundColor="@color/gold_card"
-                    app:cardCornerRadius="14dp"
+                    app:cardCornerRadius="16dp"
                     app:strokeColor="@color/gold_card_stroke"
                     app:strokeWidth="1dp">
 
@@ -503,7 +577,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="14dp">
+                        android:padding="16dp">
 
                         <TextView
                             android:id="@+id/tvLifetimeCountTitle"
@@ -521,7 +595,7 @@
                             android:layout_marginTop="4dp"
                             android:text="0"
                             android:textColor="@color/gold_text"
-                            android:textSize="24sp"
+                            android:textSize="26sp"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -534,7 +608,7 @@
                     android:layout_marginStart="5dp"
                     android:layout_weight="1"
                     app:cardBackgroundColor="@color/gold_card"
-                    app:cardCornerRadius="14dp"
+                    app:cardCornerRadius="16dp"
                     app:strokeColor="@color/gold_card_stroke"
                     app:strokeWidth="1dp">
 
@@ -542,7 +616,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="14dp">
+                        android:padding="16dp">
 
                         <TextView
                             android:id="@+id/tvLifetimeMalaTitle"
@@ -560,20 +634,20 @@
                             android:layout_marginTop="4dp"
                             android:text="0"
                             android:textColor="@color/gold_accent"
-                            android:textSize="24sp"
+                            android:textSize="26sp"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
 
-            <!-- 7-DAY CONSISTENCY WEEKLY BAR CHART -->
+            <!-- 7-DAY CONSISTENCY SADHANA CARD -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardWeeklyHistory"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="14dp"
                 app:cardBackgroundColor="@color/gold_card"
-                app:cardCornerRadius="14dp"
+                app:cardCornerRadius="18dp"
                 app:strokeColor="@color/gold_card_stroke"
                 app:strokeWidth="1dp">
 
@@ -581,7 +655,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="14dp">
+                    android:padding="16dp">
 
                     <TextView
                         android:id="@+id/tvWeeklyTitle"
@@ -604,15 +678,24 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Vibration, Sound & Calibration Settings -->
+            <!-- SETTINGS: Structured into Intuitive Groups -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:letterSpacing="0.08"
+                android:text="PREFERENCES &amp; RING CONTROL"
+                android:textColor="@color/text_muted"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/settingsCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="24dp"
+                android:layout_marginTop="8dp"
                 app:cardBackgroundColor="@color/gold_card"
-                app:cardCornerRadius="16dp"
+                app:cardCornerRadius="18dp"
                 app:strokeColor="@color/gold_card_stroke"
                 app:strokeWidth="1dp">
 
@@ -622,7 +705,7 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <!-- 108 Mala Vibration Alert -->
+                    <!-- Mala Complete Vibration -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -914,9 +997,13 @@
                             android:id="@+id/btnCalibrate"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_height="36dp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
                             android:text="Test &amp; Lock"
                             android:textColor="@color/gold_accent"
+                            android:textSize="12sp"
+                            app:cornerRadius="18dp"
                             app:strokeColor="@color/gold_card_stroke" />
                     </LinearLayout>
                 </LinearLayout>
