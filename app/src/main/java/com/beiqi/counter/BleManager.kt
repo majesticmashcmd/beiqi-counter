@@ -19,12 +19,16 @@ class BleManager(
         const val TARGET_NAME = "BEIQI-ST"
         const val TARGET_MAC = "7A:EC:97:9F:C2:B8"
         val CCCD_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+        val BATTERY_SERVICE_UUID: UUID = UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb")
+        val BATTERY_LEVEL_CHAR_UUID: UUID = UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb")
     }
 
     interface BleEventListener {
         fun onConnectionStateChanged(state: ConnectionState)
         fun onMiddleButtonClick()
         fun onDeviceCountDetected(count: Int)
+        fun onBatteryLevelDetected(batteryPercent: Int)
+        fun onDiagnosticPacket(charUuid: String, hexString: String, isCountButton: Boolean)
         fun onError(message: String)
     }
 
@@ -46,10 +50,14 @@ class BleManager(
 
     private var lastClickTimestamp = 0L
 
+    var isCalibrating = false
+    var calibratedCharUuid: String? = null
+    var calibratedSignature: String? = null
+
     @SuppressLint("MissingPermission")
     fun connect() {
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
-            listener.onError("Please enable Bluetooth on your phone.")
+            listener.onError("Please turn on Bluetooth on your device.")
             return
         }
 
@@ -66,7 +74,7 @@ class BleManager(
                 device.connectGatt(context, false, gattCallback)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Connection error", e)
+            Log.e(TAG, "Connect error", e)
             listener.onError("Connection failed: ${e.message}")
             listener.onConnectionStateChanged(ConnectionState.DISCONNECTED)
         }
@@ -108,7 +116,7 @@ class BleManager(
         @SuppressLint("MissingPermission")
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             if (status != BluetoothGatt.GATT_SUCCESS) {
-                Log.w(TAG, "Service discovery failed with status: $status")
+                Log.w(TAG, "Services discovery failed: $status")
                 return
             }
 
@@ -122,7 +130,6 @@ class BleManager(
                     val canIndicate = (props and BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0
 
                     if (canNotify || canIndicate) {
-                        Log.d(TAG, "Enabling notifications on ${characteristic.uuid}")
                         gatt.setCharacteristicNotification(characteristic, true)
 
                         val descriptor = characteristic.getDescriptor(CCCD_UUID)
@@ -138,7 +145,6 @@ class BleManager(
                         }
                     }
 
-                    // Attempt to read readable characteristics that might hold the current device count
                     if ((props and BluetoothGattCharacteristic.PROPERTY_READ) != 0) {
                         try {
                             gatt.readCharacteristic(characteristic)
@@ -153,7 +159,7 @@ class BleManager(
                 if (notifyFound) {
                     listener.onConnectionStateChanged(ConnectionState.READY)
                 } else {
-                    listener.onError("Connected, but notification stream could not be opened.")
+                    listener.onError("Connected, but could not open notification stream.")
                 }
             }
         }
@@ -165,7 +171,7 @@ class BleManager(
         ) {
             @Suppress("DEPRECATION")
             val data = characteristic.value ?: return
-            processPacket(data)
+            processNotification(characteristic.uuid.toString(), data)
         }
 
         override fun onCharacteristicChanged(
@@ -173,7 +179,7 @@ class BleManager(
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray
         ) {
-            processPacket(value)
+            processNotification(characteristic.uuid.toString(), value)
         }
 
         @Deprecated("Deprecated in Java")
@@ -185,7 +191,7 @@ class BleManager(
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 @Suppress("DEPRECATION")
                 val data = characteristic.value ?: return
-                extractAndNotifyHardwareCount(data)
+                handleCharacteristicData(characteristic.uuid.toString(), data)
             }
         }
 
@@ -196,7 +202,7 @@ class BleManager(
             status: Int
         ) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                extractAndNotifyHardwareCount(value)
+                handleCharacteristicData(characteristic.uuid.toString(), value)
             }
         }
 
@@ -224,70 +230,140 @@ class BleManager(
         bluetoothGatt?.writeDescriptor(next)
     }
 
-    /**
-     * Filters packets to ensure ONLY the middle count button registers clicks,
-     * ignoring side buttons (which send mode switch / screen wake commands).
-     */
-    private fun processPacket(bytes: ByteArray) {
+    private fun handleCharacteristicData(charUuid: String, bytes: ByteArray) {
         if (bytes.isEmpty()) return
 
-        // Check if packet represents a side-button action
-        if (isSideButtonEvent(bytes)) {
-            Log.d(TAG, "Ignored side button event: ${bytes.joinToString(" ") { "%02X".format(it) }}")
+        // Standard BLE Battery Level
+        if (charUuid.contains("2a19", ignoreCase = true)) {
+            val level = bytes[0].toInt() and 0xFF
+            if (level in 1..100) {
+                mainHandler.post { listener.onBatteryLevelDetected(level) }
+            }
             return
         }
 
-        // Debounce clicks within 90ms to ensure 1 press = 1 count
+        extractHardwareCount(bytes)
+    }
+
+    private fun processNotification(charUuid: String, bytes: ByteArray) {
+        if (bytes.isEmpty()) return
+        val hexString = bytes.joinToString(" ") { "%02X".format(it) }
+
+        // Check for BEIQI battery report packet: [0xAA, 0x05, batteryLevel, ...]
+        if (bytes.size >= 3) {
+            val b0 = bytes[0].toInt() and 0xFF
+            val b1 = bytes[1].toInt() and 0xFF
+            if ((b0 == 0xAA || b0 == 0x55) && b1 == 0x05) {
+                val battery = bytes[2].toInt() and 0xFF
+                if (battery in 1..100) {
+                    mainHandler.post { listener.onBatteryLevelDetected(battery) }
+                }
+                mainHandler.post {
+                    listener.onDiagnosticPacket(charUuid, hexString, false)
+                }
+                return
+            }
+        }
+
+        // Check if in Calibration mode: user presses physical middle button to lock it
+        if (isCalibrating) {
+            isCalibrating = false
+            mainHandler.post {
+                listener.onDiagnosticPacket(charUuid, hexString, true)
+            }
+            return
+        }
+
+        // Determine if packet is a middle button count click
+        val isMiddleButton: Boolean
+        val savedSig = calibratedSignature
+        val savedUuid = calibratedCharUuid
+
+        if (!savedSig.isNullOrEmpty()) {
+            // User has calibrated middle button: enforce strict signature & characteristic match
+            val uuidMatches = savedUuid.isNullOrEmpty() || charUuid.equals(savedUuid, ignoreCase = true)
+            val prefix = savedSig.trim().split(" ").take(2).joinToString(" ")
+            val sigMatches = hexString.startsWith(prefix, ignoreCase = true) ||
+                             hexString.equals(savedSig.trim(), ignoreCase = true)
+
+            isMiddleButton = uuidMatches && sigMatches
+            if (!isMiddleButton) {
+                Log.d(TAG, "Blocked side button / non-matching packet: $hexString")
+            }
+        } else {
+            // Default Smart Whitelist Filter for BEIQI rings
+            isMiddleButton = isMiddleButtonClickPacket(bytes)
+            if (!isMiddleButton) {
+                Log.d(TAG, "Blocked side button / non-tally packet: $hexString")
+            }
+        }
+
+        // Send to live diagnostic listener (for interactive testing / confirmation in UI)
+        mainHandler.post {
+            listener.onDiagnosticPacket(charUuid, hexString, isMiddleButton)
+        }
+
+        if (!isMiddleButton) {
+            // Explicitly ignore side buttons and system packets
+            return
+        }
+
+        // Debounce clicks within 90ms to prevent electrical micro-chatter
         val now = System.currentTimeMillis()
         if (now - lastClickTimestamp < 90) {
             return
         }
         lastClickTimestamp = now
 
-        // Check if the packet carries the hardware screen count
-        extractAndNotifyHardwareCount(bytes)
+        // Check if packet carries the ring's display count
+        extractHardwareCount(bytes)
 
-        // Trigger middle button click
+        // Fire middle button click event
         mainHandler.post {
             listener.onMiddleButtonClick()
         }
     }
 
     /**
-     * In BEIQI and smart tasbeeh rings:
-     * - Middle Button (Tally click): command ID 0x01 or 0x20, or key code 0x01.
-     * - Side Buttons (Screen on / mode switch / settings): command ID 0x02, 0x03, 0x04, or 0x80+.
+     * Strict Whitelist: Only verified middle-button tally events return TRUE.
+     * Side buttons (wake screen, flip display, mode switch, settings) return FALSE.
      */
-    private fun isSideButtonEvent(bytes: ByteArray): Boolean {
-        if (bytes.size >= 2) {
-            val b0 = bytes[0].toInt() and 0xFF
-            val b1 = bytes[1].toInt() and 0xFF
+    private fun isMiddleButtonClickPacket(bytes: ByteArray): Boolean {
+        if (bytes.isEmpty()) return false
+        val b0 = bytes[0].toInt() and 0xFF
 
-            // If header is AA or 55 or AB
-            if (b0 == 0xAA || b0 == 0x55 || b0 == 0xAB) {
-                // Command 0x02 = side key, 0x03 = screen wake, 0x04 = menu, 0x05 = long press
-                if (b1 in listOf(0x02, 0x03, 0x04, 0x05, 0x08, 0x80, 0x81, 0x82)) {
-                    return true
-                }
+        // 1. Standard BEIQI / Smart Ring Frame (AA or 55 header)
+        if (b0 == 0xAA || b0 == 0x55) {
+            if (bytes.size >= 2) {
+                val b1 = bytes[1].toInt() and 0xFF
+                // Command 0x01 = Tally Count Button Click
+                // Command 0x20 = Tally Count Sync Frame
+                // ALL other commands (0x02=screen wake, 0x03=flip, 0x04=mode, 0x05=battery, 0x08=sleep, 0x80+=ack) are side buttons or system!
+                return (b1 == 0x01 || b1 == 0x20)
             }
-
-            // Single keycode format [KeyId, State]
-            if (bytes.size == 2 && b0 != 0x01 && b0 != 0xAA && b0 != 0x55) {
-                // Key IDs other than 0x01 are side keys
-                if (b0 in 0x02..0x0A) {
-                    return true
-                }
-            }
+            return false
         }
+
+        // 2. Direct KeyCode format: [KeyId, State]
+        // Key 0x01 is the middle tally button. Key 0x02, 0x03, 0x04 are side buttons.
+        if (bytes.size in 1..3) {
+            return (b0 == 0x01)
+        }
+
+        // 3. Any packet starting with 0x02..0x0F or 0xAB is definitely side button or control
+        if (b0 in 0x02..0x0F || b0 == 0xAB) {
+            return false
+        }
+
+        // Safe by default: do not count unknown packets without calibration
         return false
     }
 
-    private fun extractAndNotifyHardwareCount(bytes: ByteArray) {
+    private fun extractHardwareCount(bytes: ByteArray) {
         if (bytes.size < 4) return
         val b0 = bytes[0].toInt() and 0xFF
         val b1 = bytes[1].toInt() and 0xFF
 
-        // Standard BEIQI frame: [0xAA, 0x01, CountHigh, CountLow, ...]
         if ((b0 == 0xAA || b0 == 0x55) && (b1 == 0x01 || b1 == 0x20)) {
             val high = bytes[2].toInt() and 0xFF
             val low = bytes[3].toInt() and 0xFF

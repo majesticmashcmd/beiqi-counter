@@ -5,20 +5,25 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.view.View
+import android.view.WindowManager
 import android.view.animation.ScaleAnimation
 import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.beiqi.counter.databinding.ActivityMainBinding
-import java.util.*
 
 class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
 
@@ -28,6 +33,10 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
     private var vibrator: Vibrator? = null
 
     private var latestHardwareCount: Int? = null
+    private var diagnosticDialog: AlertDialog? = null
+    private var tvDiagnosticLiveStatus: TextView? = null
+    private var lastCapturedSignature: String? = null
+    private var lastCapturedCharUuid: String? = null
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -65,7 +74,10 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         repository = CounterRepository(this)
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         bleManager = BleManager(this, this)
+        bleManager.calibratedCharUuid = repository.calibratedCharUuid
+        bleManager.calibratedSignature = repository.calibratedSignature
 
+        applyKeepScreenAwake(repository.keepScreenAwake)
         applyTheme(repository.currentTheme)
         setupUI()
         refreshDashboard()
@@ -74,7 +86,7 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
     override fun onResume() {
         super.onResume()
         refreshDashboard()
-        // Auto-reconnect and sync when phone screen opens / app resumes
+        // Auto-reconnect and query ring when phone is opened / unlocked
         checkPermissionsAndConnect()
     }
 
@@ -111,9 +123,30 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
             showResetMalaDialog()
         }
 
+        // Discreet manual adjusters
+        binding.btnMinusOne.setOnClickListener {
+            val updated = repository.undoClick()
+            updateActiveCounterView(updated)
+            if (repository.vibrateOnClick) triggerClickVibration()
+        }
+
+        binding.btnPlusOne.setOnClickListener {
+            onMiddleButtonClick()
+        }
+
+        binding.btnCalibrate.setOnClickListener {
+            showButtonDiagnosticDialog()
+        }
+
+        // Toggles
         binding.switchClickVibration.isChecked = repository.vibrateOnClick
         binding.switchClickVibration.setOnCheckedChangeListener { _, isChecked ->
             repository.vibrateOnClick = isChecked
+        }
+
+        binding.switchClickSound.isChecked = repository.soundOnClick
+        binding.switchClickSound.setOnCheckedChangeListener { _, isChecked ->
+            repository.soundOnClick = isChecked
         }
 
         binding.switchMalaVibration.isChecked = repository.vibrateOnMala
@@ -121,9 +154,28 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
             repository.vibrateOnMala = isChecked
         }
 
+        binding.switchMalaSound.isChecked = repository.soundOnMala
+        binding.switchMalaSound.setOnCheckedChangeListener { _, isChecked ->
+            repository.soundOnMala = isChecked
+        }
+
+        binding.switchKeepAwake.isChecked = repository.keepScreenAwake
+        binding.switchKeepAwake.setOnCheckedChangeListener { _, isChecked ->
+            repository.keepScreenAwake = isChecked
+            applyKeepScreenAwake(isChecked)
+        }
+
         binding.cardLifetimeCount.setOnLongClickListener {
             showResetLifetimeDialog()
             true
+        }
+    }
+
+    private fun applyKeepScreenAwake(keepAwake: Boolean) {
+        if (keepAwake) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 
@@ -136,7 +188,20 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         binding.tvCounterName.text = counter.name
         binding.btnSwitchCounter.text = "📿 ${counter.name} ▾"
         binding.tvCurrentBeads.text = counter.currentBeads.toString()
+        binding.malaProgressBar.max = counter.beadTarget
         binding.malaProgressBar.progress = counter.currentBeads
+        binding.tvMalaTarget.text = "Bead ${counter.currentBeads} of ${counter.beadTarget} (1 Mala)"
+
+        // Sacred Mantra Text
+        if (counter.mantra.isNotEmpty()) {
+            binding.tvMantra.visibility = View.VISIBLE
+            binding.tvMantra.text = counter.mantra
+        } else {
+            binding.tvMantra.visibility = View.GONE
+        }
+
+        // Streak badge
+        binding.tvStreakBadge.text = "🔥 ${counter.streakDays} Day Streak"
 
         // Exact 4 Dashboard Metrics
         binding.tvDailyCount.text = counter.dailyCount.toString()
@@ -157,9 +222,7 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
     }
 
     private fun showSyncDialog() {
-        // If ring recently broadcasted its count, offer to apply it directly
         val detected = latestHardwareCount
-
         val input = EditText(this).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             if (detected != null && detected > 0) {
@@ -168,24 +231,109 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
                 val active = repository.getActiveCounter()
                 setText(active.dailyCount.toString())
             }
-            hint = "Count currently on ring screen"
+            hint = "Count shown on ring display"
         }
 
         AlertDialog.Builder(this)
             .setTitle("Sync with BEIQI-ST Ring")
-            .setMessage("Confirm the count shown on your ring's display to synchronize:")
+            .setMessage("Confirm the count currently shown on your ring screen:")
             .setView(input)
-            .setPositiveButton("Sync Now") { _, _ ->
+            .setPositiveButton("Sync") { _, _ ->
                 val ringCount = input.text.toString().toIntOrNull()
                 if (ringCount != null && ringCount >= 0) {
                     val updated = repository.syncActiveCounterWithRing(ringCount)
                     updateActiveCounterView(updated)
                     binding.syncStatusText.text = "Synced: $ringCount"
-                    Toast.makeText(this, "Synchronized with ring count: $ringCount", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Counts aligned with ring: $ringCount", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    /**
+     * Interactive Button Diagnostic & Calibration Tool.
+     * Allows user to press middle button and side buttons and see live on-screen
+     * confirmation that side buttons are blocked while middle button counts.
+     */
+    private fun showButtonDiagnosticDialog() {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(50, 24, 50, 10)
+        }
+
+        val tvStatus = TextView(this).apply {
+            textSize = 13f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_muted))
+            val currentLock = repository.calibratedSignature
+            text = if (!currentLock.isNullOrEmpty()) {
+                "🔒 Status: Locked to Middle Button signature ($currentLock)\nSide buttons are completely blocked."
+            } else {
+                "🛡️ Status: Smart Auto-Filter Active\nMiddle count button is allowed; side buttons (screen wake / menu) are blocked."
+            }
+        }
+        layout.addView(tvStatus)
+
+        val tvLiveFeedback = TextView(this).apply {
+            textSize = 14f
+            setPadding(0, 24, 0, 16)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.gold_accent))
+            text = "👉 Press any button on your BEIQI-ST ring now to test it live..."
+        }
+        tvDiagnosticLiveStatus = tvLiveFeedback
+        layout.addView(tvLiveFeedback)
+
+        diagnosticDialog = AlertDialog.Builder(this)
+            .setTitle("🎯 Button Test & Calibration")
+            .setView(layout)
+            .setPositiveButton("Lock Last Button") { _, _ ->
+                val sig = lastCapturedSignature
+                val uuid = lastCapturedCharUuid
+                if (!sig.isNullOrEmpty()) {
+                    repository.calibratedSignature = sig
+                    repository.calibratedCharUuid = uuid
+                    bleManager.calibratedSignature = sig
+                    bleManager.calibratedCharUuid = uuid
+                    Toast.makeText(this, "✅ Locked to: $sig\nSide buttons strictly blocked!", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this, "Please press your middle button first before locking.", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNeutralButton("Reset to Auto-Filter") { _, _ ->
+                repository.clearCalibration()
+                bleManager.calibratedSignature = null
+                bleManager.calibratedCharUuid = null
+                Toast.makeText(this, "Reset to Smart Auto-Filter", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Close") { _, _ ->
+                diagnosticDialog = null
+                tvDiagnosticLiveStatus = null
+            }
+            .setOnDismissListener {
+                diagnosticDialog = null
+                tvDiagnosticLiveStatus = null
+            }
+            .show()
+    }
+
+    override fun onDiagnosticPacket(charUuid: String, hexString: String, isCountButton: Boolean) {
+        lastCapturedCharUuid = charUuid
+        lastCapturedSignature = hexString
+
+        tvDiagnosticLiveStatus?.post {
+            if (isCountButton) {
+                tvDiagnosticLiveStatus?.text =
+                    "✅ Middle Button Pressed!\nSignature: $hexString\nStatus: Registered as Count"
+            } else {
+                tvDiagnosticLiveStatus?.text =
+                    "🚫 Side Button / Status Packet Pressed!\nSignature: $hexString\nStatus: BLOCKED & IGNORED (No count)"
+            }
+        }
+    }
+
+    override fun onBatteryLevelDetected(batteryPercent: Int) {
+        binding.tvBatteryStatus.visibility = View.VISIBLE
+        binding.tvBatteryStatus.text = "• 🔋 $batteryPercent%"
     }
 
     private fun showSwitchCounterDialog() {
@@ -195,31 +343,68 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         val selectedIndex = list.indexOfFirst { it.id == active.id }.coerceAtLeast(0)
 
         AlertDialog.Builder(this)
-            .setTitle("Switch Active Counter")
+            .setTitle("Switch Counter")
             .setSingleChoiceItems(names, selectedIndex) { dialog, which ->
                 val chosen = list[which]
                 repository.setActiveCounterId(chosen.id)
                 refreshDashboard()
                 dialog.dismiss()
-                Toast.makeText(this, "Active: ${chosen.name}", Toast.LENGTH_SHORT).show()
             }
             .setPositiveButton("Close", null)
             .show()
     }
 
     private fun showAddCounterDialog() {
-        val input = EditText(this).apply {
-            hint = "Name (e.g. Sewing, Meditation)"
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(50, 20, 50, 10)
+        }
+        val nameInput = EditText(this).apply { hint = "Counter Name (e.g. Sewing, Chanting)" }
+        val mantraInput = EditText(this).apply { hint = "Sacred Mantra (e.g. Om Namah Shivaya)" }
+        layout.addView(nameInput)
+        layout.addView(mantraInput)
+
+        val quickMantraLabel = TextView(this).apply {
+            text = "Quick Presets:"
+            textSize = 12f
+            setPadding(0, 14, 0, 6)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_muted))
+        }
+        layout.addView(quickMantraLabel)
+
+        val presets = listOf(
+            "🕉️ Om Namah Shivaya" to "Meditation",
+            "📿 Hare Krishna" to "Japa",
+            "🌺 Gayatri Mantra" to "Chanting",
+            "☸️ Om Mani Padme Hum" to "Buddhism",
+            "🌸 Waheguru" to "Simran",
+            "🧵 Sewing & Crafts" to "Crafts"
+        )
+
+        for ((presetMantra, defaultName) in presets) {
+            val presetBtn = com.google.android.material.button.MaterialButton(this).apply {
+                text = presetMantra
+                textSize = 12f
+                isAllCaps = false
+                strokeWidth = 0
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.gold_accent))
+                setOnClickListener {
+                    nameInput.setText(defaultName)
+                    mantraInput.setText(presetMantra)
+                }
+            }
+            layout.addView(presetBtn)
         }
 
         AlertDialog.Builder(this)
             .setTitle("Create Purpose Counter")
-            .setMessage("Add a new dedicated counter:")
-            .setView(input)
+            .setView(layout)
             .setPositiveButton("Create") { _, _ ->
-                val name = input.text.toString().trim()
+                val name = nameInput.text.toString().trim()
+                val mantra = mantraInput.text.toString().trim()
                 if (name.isNotEmpty()) {
-                    val created = repository.addCounter(name)
+                    val created = repository.addCounter(name, mantra)
                     refreshDashboard()
                     Toast.makeText(this, "Created: ${created.name}", Toast.LENGTH_SHORT).show()
                 }
@@ -230,18 +415,30 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
 
     private fun showEditCounterDialog() {
         val active = repository.getActiveCounter()
-        val input = EditText(this).apply {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(50, 20, 50, 10)
+        }
+        val nameInput = EditText(this).apply {
             setText(active.name)
             hint = "Counter Name"
         }
+        val mantraInput = EditText(this).apply {
+            setText(active.mantra)
+            hint = "Sacred Mantra (e.g. Om Namah Shivaya)"
+        }
+        layout.addView(nameInput)
+        layout.addView(mantraInput)
 
         AlertDialog.Builder(this)
-            .setTitle("Edit: ${active.name}")
-            .setView(input)
-            .setPositiveButton("Save Name") { _, _ ->
-                val newName = input.text.toString().trim()
+            .setTitle("Edit Counter")
+            .setView(layout)
+            .setPositiveButton("Save") { _, _ ->
+                val newName = nameInput.text.toString().trim()
+                val newMantra = mantraInput.text.toString().trim()
                 if (newName.isNotEmpty()) {
                     active.name = newName
+                    active.mantra = newMantra
                     repository.saveActiveCounter(active)
                     refreshDashboard()
                 }
@@ -262,7 +459,7 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
     private fun showResetMalaDialog() {
         AlertDialog.Builder(this)
             .setTitle("Reset Current Mala?")
-            .setMessage("Reset the active 0-108 bead count back to 0? Daily and Lifetime stats will remain untouched.")
+            .setMessage("Reset the active 0-108 bead count back to 0? Daily and Lifetime stats remain untouched.")
             .setPositiveButton("Reset Mala") { _, _ ->
                 val active = repository.getActiveCounter()
                 active.resetMalaOnly()
@@ -277,7 +474,7 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
     private fun showResetLifetimeDialog() {
         AlertDialog.Builder(this)
             .setTitle("Reset Lifetime Stats?")
-            .setMessage("Do you want to reset all lifetime counts and malas for this counter?")
+            .setMessage("Reset all lifetime counts and malas for this counter?")
             .setPositiveButton("Reset") { _, _ ->
                 val active = repository.getActiveCounter()
                 active.lifetimeCount = 0L
@@ -348,14 +545,22 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
 
         binding.appTitle.setTextColor(textResolved)
         binding.tvCounterName.setTextColor(textResolved)
+        binding.tvMantra.setTextColor(accentResolved)
         binding.tvCurrentBeads.setTextColor(accentResolved)
         binding.tvDailyCount.setTextColor(textResolved)
         binding.tvDailyMala.setTextColor(accentResolved)
         binding.tvLifetimeCount.setTextColor(textResolved)
         binding.tvLifetimeMala.setTextColor(accentResolved)
+        binding.tvStreakBadge.setTextColor(accentResolved)
         binding.statusText.setTextColor(textResolved)
+        binding.badgeCameraBg.setBackgroundColor(accentResolved)
+
         binding.tvMalaVibrateTitle.setTextColor(textResolved)
+        binding.tvMalaSoundTitle.setTextColor(textResolved)
         binding.tvClickVibrateTitle.setTextColor(textResolved)
+        binding.tvClickSoundTitle.setTextColor(textResolved)
+        binding.tvKeepAwakeTitle.setTextColor(textResolved)
+        binding.tvCalibrationTitle.setTextColor(textResolved)
 
         binding.btnTheme.setTextColor(accentResolved)
         binding.btnTheme.strokeColor = ColorStateList.valueOf(strokeResolved)
@@ -368,11 +573,16 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         binding.btnEditCounter.strokeColor = ColorStateList.valueOf(strokeResolved)
         binding.btnSyncDevice.setTextColor(accentResolved)
         binding.btnSyncDevice.strokeColor = ColorStateList.valueOf(strokeResolved)
+        binding.btnCalibrate.setTextColor(accentResolved)
+        binding.btnCalibrate.strokeColor = ColorStateList.valueOf(strokeResolved)
+        binding.btnPlusOne.setTextColor(accentResolved)
 
         binding.malaProgressBar.setIndicatorColor(accentResolved)
         binding.malaProgressBar.trackColor = strokeResolved
 
-        binding.divider1.setBackgroundColor(strokeResolved)
+        listOf(binding.divider1, binding.divider2, binding.divider3, binding.divider4, binding.divider5).forEach {
+            it.setBackgroundColor(strokeResolved)
+        }
     }
 
     private data class ThemeColors(
@@ -413,6 +623,7 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
                 binding.statusText.text = "Disconnected"
                 binding.syncStatusText.text = "Tap Connect"
                 binding.btnConnect.text = "Connect"
+                binding.tvBatteryStatus.visibility = View.GONE
             }
             BleManager.ConnectionState.CONNECTING -> {
                 binding.statusIndicator.setBackgroundColor(ContextCompat.getColor(this, R.color.status_yellow))
@@ -438,13 +649,12 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
 
     /**
      * Middle Button Click from the ring.
-     * Side buttons are ignored by BleManager.
+     * Side buttons are ignored.
      */
     override fun onMiddleButtonClick() {
         val (counter, malaCompleted) = repository.recordClick()
         updateActiveCounterView(counter)
 
-        // Animate counter bump
         val anim = ScaleAnimation(
             1.0f, 1.15f, 1.0f, 1.15f,
             ScaleAnimation.RELATIVE_TO_SELF, 0.5f,
@@ -456,12 +666,21 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         }
         binding.tvCurrentBeads.startAnimation(anim)
 
-        // Vibration handling
-        if (malaCompleted && repository.vibrateOnMala) {
-            triggerMalaCelebrationVibration()
-            Toast.makeText(this, "📿 Mala Completed! (108 Beads)", Toast.LENGTH_LONG).show()
-        } else if (repository.vibrateOnClick) {
-            triggerClickVibration()
+        if (malaCompleted) {
+            if (repository.vibrateOnMala) {
+                triggerMalaCelebrationVibration()
+            }
+            if (repository.soundOnMala) {
+                playTempleBellChime()
+            }
+            Toast.makeText(this, "📿 Mala Completed! (108 Beads) for ${counter.name}", Toast.LENGTH_LONG).show()
+        } else {
+            if (repository.vibrateOnClick) {
+                triggerClickVibration()
+            }
+            if (repository.soundOnClick) {
+                playBeadClickSound()
+            }
         }
     }
 
@@ -491,6 +710,24 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         } else {
             @Suppress("DEPRECATION")
             vibrator?.vibrate(pattern, -1)
+        }
+    }
+
+    private fun playTempleBellChime() {
+        try {
+            val toneGen = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 95)
+            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP2, 450)
+        } catch (e: Exception) {
+            // Ignored if audio stream busy
+        }
+    }
+
+    private fun playBeadClickSound() {
+        try {
+            val toneGen = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 60)
+            toneGen.startTone(ToneGenerator.TONE_PROP_PROMPT, 30)
+        } catch (e: Exception) {
+            // Ignored if audio stream busy
         }
     }
 

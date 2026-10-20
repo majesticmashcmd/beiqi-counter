@@ -37,14 +37,32 @@
                     android:textSize="26sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:id="@+id/deviceSubtitle"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="BEIQI-ST Smart Ring"
-                    android:textColor="@color/text_muted"
-                    android:textSize="12sp" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/deviceSubtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="BEIQI-ST Smart Ring"
+                        android:textColor="@color/text_muted"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/tvBatteryStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text=""
+                        android:textColor="@color/gold_accent"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+                </LinearLayout>
             </LinearLayout>
 
             <com.google.android.material.button.MaterialButton
@@ -167,9 +185,9 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:orientation="vertical"
-                android:padding="24dp">
+                android:padding="22dp">
 
-                <!-- User Picture / Avatar with Gold Border -->
+                <!-- User Picture / Avatar with Border -->
                 <FrameLayout
                     android:id="@+id/imageContainer"
                     android:layout_width="84dp"
@@ -185,6 +203,7 @@
                         app:shapeAppearanceOverlay="@style/ShapeAppearance.MaterialComponents.MediumComponent" />
 
                     <View
+                        android:id="@+id/badgeCameraBg"
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:layout_gravity="bottom|end"
@@ -211,16 +230,54 @@
                     android:textSize="18sp"
                     android:textStyle="bold" />
 
-                <!-- Current Beads Count (0 to 108) -->
+                <!-- Sacred Mantra or Intention text -->
                 <TextView
-                    android:id="@+id/tvCurrentBeads"
+                    android:id="@+id/tvMantra"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="0"
+                    android:fontFamily="serif"
+                    android:text="Om Namah Shivaya"
                     android:textColor="@color/gold_accent"
-                    android:textSize="88sp"
-                    android:textStyle="bold" />
+                    android:textSize="13sp"
+                    android:textStyle="italic" />
+
+                <!-- Bead Adjuster Row: [-1 Undo] [Current Beads (0 to 108)] [+1 Bead] -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnMinusOne"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="−1 Undo"
+                        android:textColor="@color/text_muted"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/tvCurrentBeads"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="14dp"
+                        android:text="0"
+                        android:textColor="@color/gold_accent"
+                        android:textSize="84sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnPlusOne"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="+1 Bead"
+                        android:textColor="@color/gold_accent"
+                        android:textSize="12sp" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/tvMalaTarget"
@@ -272,16 +329,34 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- DASHBOARD 4-METRIC GRID -->
-        <TextView
-            android:layout_width="wrap_content"
+        <!-- DASHBOARD HEADER WITH STREAK BADGE -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            android:letterSpacing="0.1"
-            android:text="JAPA DASHBOARD"
-            android:textColor="@color/text_muted"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvDashboardHeading"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:letterSpacing="0.1"
+                android:text="JAPA DASHBOARD"
+                android:textColor="@color/text_muted"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvStreakBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔥 1 Day Streak"
+                android:textColor="@color/gold_accent"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
         <!-- Row 1: Daily Count & Daily Mala -->
         <LinearLayout
@@ -309,6 +384,7 @@
                     android:padding="14dp">
 
                     <TextView
+                        android:id="@+id/tvDailyCountTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="📅 Daily Count"
@@ -347,6 +423,7 @@
                     android:padding="14dp">
 
                     <TextView
+                        android:id="@+id/tvDailyMalaTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="📿 Daily Mala"
@@ -393,6 +470,7 @@
                     android:padding="14dp">
 
                     <TextView
+                        android:id="@+id/tvLifetimeCountTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="♾️ Lifetime Count"
@@ -431,6 +509,7 @@
                     android:padding="14dp">
 
                     <TextView
+                        android:id="@+id/tvLifetimeMalaTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="🏆 Lifetime Mala"
@@ -451,7 +530,7 @@
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
 
-        <!-- Vibration & Ring Settings -->
+        <!-- Vibration, Sound & Calibration Settings -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/settingsCard"
             android:layout_width="match_parent"
@@ -486,7 +565,7 @@
                             android:id="@+id/tvMalaVibrateTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Vibrate on 108 (Mala Complete)"
+                            android:text="📳 Vibrate on 108 (Mala Complete)"
                             android:textColor="@color/gold_text"
                             android:textSize="13sp"
                             android:textStyle="bold" />
@@ -494,7 +573,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Triple pulse on reaching 108 beads"
+                            android:text="Celebration pulse when 108 beads are completed"
                             android:textColor="@color/text_muted"
                             android:textSize="11sp" />
                     </LinearLayout>
@@ -510,8 +589,39 @@
                     android:id="@+id/divider1"
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:layout_marginTop="12dp"
-                    android:layout_marginBottom="12dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="10dp"
+                    android:background="@color/gold_card_stroke" />
+
+                <!-- Sound on Mala -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvMalaSoundTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="🔔 Chime bell on 108 Mala"
+                        android:textColor="@color/gold_text"
+                        android:textSize="13sp" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switchMalaSound"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+
+                <View
+                    android:id="@+id/divider2"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="10dp"
                     android:background="@color/gold_card_stroke" />
 
                 <!-- Click Vibration -->
@@ -526,7 +636,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Vibrate on each bead"
+                        android:text="📳 Haptic pulse on each bead"
                         android:textColor="@color/gold_text"
                         android:textSize="13sp" />
 
@@ -535,6 +645,117 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:checked="true" />
+                </LinearLayout>
+
+                <View
+                    android:id="@+id/divider3"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="10dp"
+                    android:background="@color/gold_card_stroke" />
+
+                <!-- Wooden Bead Click Sound -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvClickSoundTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="📿 Bead click sound on each bead"
+                        android:textColor="@color/gold_text"
+                        android:textSize="13sp" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switchClickSound"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="false" />
+                </LinearLayout>
+
+                <View
+                    android:id="@+id/divider4"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="10dp"
+                    android:background="@color/gold_card_stroke" />
+
+                <!-- Keep Screen Awake Toggle -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvKeepAwakeTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="🌟 Keep screen awake during Japa"
+                        android:textColor="@color/gold_text"
+                        android:textSize="13sp" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switchKeepAwake"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="false" />
+                </LinearLayout>
+
+                <View
+                    android:id="@+id/divider5"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:background="@color/gold_card_stroke" />
+
+                <!-- Button Calibration & Diagnostic Feature -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvCalibrationTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🎯 Lock Middle Button Only"
+                            android:textColor="@color/gold_text"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvCalibrationSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Test buttons &amp; ensure side buttons are blocked"
+                            android:textColor="@color/text_muted"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCalibrate"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Test &amp; Lock"
+                        android:textColor="@color/gold_accent"
+                        app:strokeColor="@color/gold_card_stroke" />
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

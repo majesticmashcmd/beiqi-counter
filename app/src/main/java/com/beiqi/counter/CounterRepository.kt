@@ -29,11 +29,15 @@ class CounterRepository(context: Context) {
         if (jsonStr.isNullOrEmpty()) {
             val meditation = CounterProfile(
                 name = "Meditation (Japa)",
-                lastDate = today
+                mantra = "Om Namah Shivaya",
+                lastDate = today,
+                beadTarget = 108
             )
             val sewing = CounterProfile(
                 name = "Sewing & Crafts",
-                lastDate = today
+                mantra = "Stitch Counter",
+                lastDate = today,
+                beadTarget = 108
             )
             list.add(meditation)
             list.add(sewing)
@@ -54,7 +58,7 @@ class CounterRepository(context: Context) {
         }
 
         if (list.isEmpty()) {
-            val defaultCounter = CounterProfile(name = "Meditation (Japa)", lastDate = today)
+            val defaultCounter = CounterProfile(name = "Meditation (Japa)", mantra = "Om Namah Shivaya", lastDate = today)
             list.add(defaultCounter)
             saveAllCounters(list)
             setActiveCounterId(defaultCounter.id)
@@ -90,11 +94,13 @@ class CounterRepository(context: Context) {
         saveAllCounters(list)
     }
 
-    fun addCounter(name: String, imageUri: String? = null): CounterProfile {
+    fun addCounter(name: String, mantra: String = "", beadTarget: Int = 108, imageUri: String? = null): CounterProfile {
         val list = getAllCounters()
         val newProfile = CounterProfile(
             name = name,
+            mantra = mantra,
             imageUri = imageUri,
+            beadTarget = beadTarget,
             lastDate = getTodayString()
         )
         list.add(newProfile)
@@ -125,6 +131,13 @@ class CounterRepository(context: Context) {
         return Pair(active, malaCompleted)
     }
 
+    fun undoClick(): CounterProfile {
+        val active = getActiveCounter()
+        active.undoClick(getTodayString())
+        saveActiveCounter(active)
+        return active
+    }
+
     fun syncActiveCounterWithRing(ringCount: Int): CounterProfile {
         val active = getActiveCounter()
         active.syncFromHardwareCount(ringCount, getTodayString())
@@ -140,7 +153,35 @@ class CounterRepository(context: Context) {
         get() = prefs.getBoolean("vibrate_on_mala", true)
         set(value) = prefs.edit().putBoolean("vibrate_on_mala", value).apply()
 
+    var soundOnMala: Boolean
+        get() = prefs.getBoolean("sound_on_mala", true)
+        set(value) = prefs.edit().putBoolean("sound_on_mala", value).apply()
+
+    var soundOnClick: Boolean
+        get() = prefs.getBoolean("sound_on_click", false)
+        set(value) = prefs.edit().putBoolean("sound_on_click", value).apply()
+
+    var keepScreenAwake: Boolean
+        get() = prefs.getBoolean("keep_screen_awake", false)
+        set(value) = prefs.edit().putBoolean("keep_screen_awake", value).apply()
+
     var currentTheme: String
         get() = prefs.getString("current_theme", THEME_GOLD) ?: THEME_GOLD
         set(value) = prefs.edit().putString("current_theme", value).apply()
+
+    // Calibration: Characteristic UUID and Packet Signature of middle button
+    var calibratedCharUuid: String?
+        get() = prefs.getString("calibrated_char_uuid", null)
+        set(value) = prefs.edit().putString("calibrated_char_uuid", value).apply()
+
+    var calibratedSignature: String?
+        get() = prefs.getString("calibrated_signature", null)
+        set(value) = prefs.edit().putString("calibrated_signature", value).apply()
+
+    fun clearCalibration() {
+        prefs.edit()
+            .remove("calibrated_char_uuid")
+            .remove("calibrated_signature")
+            .apply()
+    }
 }
