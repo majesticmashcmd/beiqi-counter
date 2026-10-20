@@ -1,7 +1,6 @@
 package com.beiqi.counter
 
 import org.json.JSONObject
-import java.text.SimpleDateFormat
 import java.util.*
 
 data class CounterProfile(
@@ -41,7 +40,19 @@ data class CounterProfile(
         return malaCompleted
     }
 
-    fun resetMala() {
+    fun syncFromHardwareCount(ringCount: Int, today: String) {
+        checkAndResetDaily(today)
+        val diff = if (ringCount >= dailyCount) ringCount - dailyCount else 0
+
+        dailyCount = ringCount
+        dailyMala = ringCount / 108
+        currentBeads = ringCount % 108
+
+        lifetimeCount += diff
+        lifetimeMala = (lifetimeCount / 108)
+    }
+
+    fun resetMalaOnly() {
         currentBeads = 0
     }
 

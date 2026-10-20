@@ -18,7 +18,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.beiqi.counter.databinding.ActivityMainBinding
-import java.text.SimpleDateFormat
 import java.util.*
 
 class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
@@ -28,6 +27,8 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
     private lateinit var repository: CounterRepository
     private var vibrator: Vibrator? = null
 
+    private var latestHardwareCount: Int? = null
+
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -35,7 +36,7 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         if (allGranted) {
             bleManager.connect()
         } else {
-            Toast.makeText(this, "Bluetooth permissions are required to connect", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Bluetooth permission needed to connect to BEIQI-ST", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -44,16 +45,15 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
     ) { uri: Uri? ->
         if (uri != null) {
             try {
-                // Try to take persistable read permission so the image stays accessible
                 contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             } catch (e: Exception) {
-                // Non-fatal if URI does not support persistable grants
+                // Non-fatal if URI does not support persistable grant
             }
             val active = repository.getActiveCounter()
             active.imageUri = uri.toString()
             repository.saveActiveCounter(active)
             updateActiveCounterView(active)
-            Toast.makeText(this, "Counter photo updated!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Counter photo updated", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -69,6 +69,13 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         applyTheme(repository.currentTheme)
         setupUI()
         refreshDashboard()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshDashboard()
+        // Auto-reconnect and sync when phone screen opens / app resumes
+        checkPermissionsAndConnect()
     }
 
     private fun setupUI() {
@@ -94,6 +101,10 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
 
         binding.imageContainer.setOnClickListener {
             pickImageLauncher.launch("image/*")
+        }
+
+        binding.btnSyncDevice.setOnClickListener {
+            showSyncDialog()
         }
 
         binding.btnResetMala.setOnClickListener {
@@ -123,17 +134,17 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
 
     private fun updateActiveCounterView(counter: CounterProfile) {
         binding.tvCounterName.text = counter.name
-        binding.btnSwitchCounter.text = "📁 ${counter.name} ▾"
+        binding.btnSwitchCounter.text = "📿 ${counter.name} ▾"
         binding.tvCurrentBeads.text = counter.currentBeads.toString()
         binding.malaProgressBar.progress = counter.currentBeads
 
-        // Exact 4 requested dashboard metrics
+        // Exact 4 Dashboard Metrics
         binding.tvDailyCount.text = counter.dailyCount.toString()
         binding.tvDailyMala.text = counter.dailyMala.toString()
         binding.tvLifetimeCount.text = "%,d".format(counter.lifetimeCount)
         binding.tvLifetimeMala.text = "%,d".format(counter.lifetimeMala)
 
-        // Custom picture display
+        // Custom Picture Display
         if (!counter.imageUri.isNullOrEmpty()) {
             try {
                 binding.counterImage.setImageURI(Uri.parse(counter.imageUri))
@@ -143,6 +154,38 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         } else {
             binding.counterImage.setImageResource(R.drawable.ic_launcher)
         }
+    }
+
+    private fun showSyncDialog() {
+        // If ring recently broadcasted its count, offer to apply it directly
+        val detected = latestHardwareCount
+
+        val input = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            if (detected != null && detected > 0) {
+                setText(detected.toString())
+            } else {
+                val active = repository.getActiveCounter()
+                setText(active.dailyCount.toString())
+            }
+            hint = "Count currently on ring screen"
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Sync with BEIQI-ST Ring")
+            .setMessage("Confirm the count shown on your ring's display to synchronize:")
+            .setView(input)
+            .setPositiveButton("Sync Now") { _, _ ->
+                val ringCount = input.text.toString().toIntOrNull()
+                if (ringCount != null && ringCount >= 0) {
+                    val updated = repository.syncActiveCounterWithRing(ringCount)
+                    updateActiveCounterView(updated)
+                    binding.syncStatusText.text = "Synced: $ringCount"
+                    Toast.makeText(this, "Synchronized with ring count: $ringCount", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun showSwitchCounterDialog() {
@@ -166,12 +209,12 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
 
     private fun showAddCounterDialog() {
         val input = EditText(this).apply {
-            hint = "Counter Name (e.g. Sewing, Meditation)"
+            hint = "Name (e.g. Sewing, Meditation)"
         }
 
         AlertDialog.Builder(this)
-            .setTitle("Create New Counter")
-            .setMessage("Give this counter a specific purpose:")
+            .setTitle("Create Purpose Counter")
+            .setMessage("Add a new dedicated counter:")
             .setView(input)
             .setPositiveButton("Create") { _, _ ->
                 val name = input.text.toString().trim()
@@ -193,7 +236,7 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         }
 
         AlertDialog.Builder(this)
-            .setTitle("Edit Counter: ${active.name}")
+            .setTitle("Edit: ${active.name}")
             .setView(input)
             .setPositiveButton("Save Name") { _, _ ->
                 val newName = input.text.toString().trim()
@@ -209,7 +252,7 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
                     refreshDashboard()
                     Toast.makeText(this, "Counter deleted", Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(this, "Cannot delete the only counter", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Cannot delete the default counter", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton("Cancel", null)
@@ -219,13 +262,13 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
     private fun showResetMalaDialog() {
         AlertDialog.Builder(this)
             .setTitle("Reset Current Mala?")
-            .setMessage("This will reset the current 0-108 bead count back to 0. Daily and Lifetime totals remain safe.")
+            .setMessage("Reset the active 0-108 bead count back to 0? Daily and Lifetime stats will remain untouched.")
             .setPositiveButton("Reset Mala") { _, _ ->
                 val active = repository.getActiveCounter()
-                active.resetMala()
+                active.resetMalaOnly()
                 repository.saveActiveCounter(active)
                 refreshDashboard()
-                Toast.makeText(this, "Mala bead count reset to 0", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Mala bead progress reset", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -294,7 +337,6 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         binding.mainScrollView.setBackgroundColor(bgResolved)
         window.statusBarColor = bgResolved
 
-        // Card styling
         listOf(
             binding.statusCard, binding.counterHeroCard, binding.cardDailyCount,
             binding.cardDailyMala, binding.cardLifetimeCount, binding.cardLifetimeMala,
@@ -304,7 +346,6 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
             it.strokeColor = strokeResolved
         }
 
-        // Texts
         binding.appTitle.setTextColor(textResolved)
         binding.tvCounterName.setTextColor(textResolved)
         binding.tvCurrentBeads.setTextColor(accentResolved)
@@ -316,7 +357,6 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         binding.tvMalaVibrateTitle.setTextColor(textResolved)
         binding.tvClickVibrateTitle.setTextColor(textResolved)
 
-        // Buttons & indicators
         binding.btnTheme.setTextColor(accentResolved)
         binding.btnTheme.strokeColor = ColorStateList.valueOf(strokeResolved)
         binding.btnConnect.setTextColor(accentResolved)
@@ -326,6 +366,8 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         binding.btnAddCounter.strokeColor = ColorStateList.valueOf(strokeResolved)
         binding.btnEditCounter.setTextColor(textResolved)
         binding.btnEditCounter.strokeColor = ColorStateList.valueOf(strokeResolved)
+        binding.btnSyncDevice.setTextColor(accentResolved)
+        binding.btnSyncDevice.strokeColor = ColorStateList.valueOf(strokeResolved)
 
         binding.malaProgressBar.setIndicatorColor(accentResolved)
         binding.malaProgressBar.trackColor = strokeResolved
@@ -381,28 +423,28 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
             BleManager.ConnectionState.CONNECTED -> {
                 binding.statusIndicator.setBackgroundColor(ContextCompat.getColor(this, R.color.status_yellow))
                 binding.statusText.text = "Connected"
-                binding.syncStatusText.text = "Subscribing clicks"
+                binding.syncStatusText.text = "Syncing services"
                 binding.btnConnect.text = "Disconnect"
             }
             BleManager.ConnectionState.READY -> {
                 binding.statusIndicator.setBackgroundColor(ContextCompat.getColor(this, R.color.status_green))
                 binding.statusText.text = "Connected & Active"
-                binding.syncStatusText.text = "1 Click = 1 Count"
+                binding.syncStatusText.text = "Ring Ready"
                 binding.btnConnect.text = "Disconnect"
-                Toast.makeText(this, "Connected! Click your BEIQI-ST ring", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Daily Japa Ready! Click your ring", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     /**
-     * Called whenever a physical button click is received from BEIQI-ST.
-     * Guaranteed strictly 1 click = 1 count.
+     * Middle Button Click from the ring.
+     * Side buttons are ignored by BleManager.
      */
-    override fun onSingleClickRegistered(rawHex: String) {
+    override fun onMiddleButtonClick() {
         val (counter, malaCompleted) = repository.recordClick()
         updateActiveCounterView(counter)
 
-        // Animate counter
+        // Animate counter bump
         val anim = ScaleAnimation(
             1.0f, 1.15f, 1.0f, 1.15f,
             ScaleAnimation.RELATIVE_TO_SELF, 0.5f,
@@ -414,12 +456,22 @@ class MainActivity : AppCompatActivity(), BleManager.BleEventListener {
         }
         binding.tvCurrentBeads.startAnimation(anim)
 
-        // Handle Vibration
+        // Vibration handling
         if (malaCompleted && repository.vibrateOnMala) {
             triggerMalaCelebrationVibration()
-            Toast.makeText(this, "📿 Mala Completed! (108 Clicks) for ${counter.name}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "📿 Mala Completed! (108 Beads)", Toast.LENGTH_LONG).show()
         } else if (repository.vibrateOnClick) {
             triggerClickVibration()
+        }
+    }
+
+    override fun onDeviceCountDetected(count: Int) {
+        latestHardwareCount = count
+        val active = repository.getActiveCounter()
+        if (count > active.dailyCount) {
+            val updated = repository.syncActiveCounterWithRing(count)
+            updateActiveCounterView(updated)
+            binding.syncStatusText.text = "Auto-Synced: $count"
         }
     }
 

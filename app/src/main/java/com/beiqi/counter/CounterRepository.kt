@@ -11,13 +11,13 @@ class CounterRepository(context: Context) {
         context.getSharedPreferences("beiqi_multicounter_prefs", Context.MODE_PRIVATE)
 
     companion object {
-        const val THEME_OBSIDIAN = "Obsidian"
+        const val THEME_OBSIDIAN = "Obsidian Blue"
         const val THEME_GOLD = "Spiritual Gold"
         const val THEME_EMERALD = "Emerald Forest"
         const val THEME_LOTUS = "Lotus Blossom"
     }
 
-    private fun getTodayString(): String {
+    fun getTodayString(): String {
         return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     }
 
@@ -27,7 +27,6 @@ class CounterRepository(context: Context) {
         val list = mutableListOf<CounterProfile>()
 
         if (jsonStr.isNullOrEmpty()) {
-            // Default starter counters
             val meditation = CounterProfile(
                 name = "Meditation (Japa)",
                 lastDate = today
@@ -106,7 +105,7 @@ class CounterRepository(context: Context) {
 
     fun deleteCounter(id: String): CounterProfile? {
         val list = getAllCounters()
-        if (list.size <= 1) return null // keep at least one counter
+        if (list.size <= 1) return null
 
         list.removeAll { it.id == id }
         saveAllCounters(list)
@@ -124,6 +123,13 @@ class CounterRepository(context: Context) {
         val malaCompleted = active.registerClick(getTodayString())
         saveActiveCounter(active)
         return Pair(active, malaCompleted)
+    }
+
+    fun syncActiveCounterWithRing(ringCount: Int): CounterProfile {
+        val active = getActiveCounter()
+        active.syncFromHardwareCount(ringCount, getTodayString())
+        saveActiveCounter(active)
+        return active
     }
 
     var vibrateOnClick: Boolean
