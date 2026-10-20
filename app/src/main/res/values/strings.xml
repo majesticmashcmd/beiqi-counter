@@ -1,5 +1,8 @@
 <resources>
-    <string name="app_name">BEIQI Counter</string>
+    <string name="app_name">BEIQI Mala Counter</string>
     <string name="target_device_name">BEIQI-ST</string>
     <string name="target_device_mac">7A:EC:97:9F:C2:B8</string>
+    <string name="mala_label">1 MALA = 108</string>
+    <string name="today_label">TODAY</string>
+    <string name="lifetime_label">LIFETIME</string>
 </resources>

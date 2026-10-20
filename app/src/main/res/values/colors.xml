@@ -1,15 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#1A1C29</color>
-    <color name="primary_dark">#12131C</color>
-    <color name="accent">#4E95FF</color>
-    <color name="accent_glow">#204E95FF</color>
-    <color name="bg_dark">#0F1016</color>
-    <color name="card_bg">#181A22</color>
-    <color name="card_stroke">#282B37</color>
-    <color name="text_main">#FFFFFF</color>
-    <color name="text_muted">#8A8FA3</color>
+    <!-- Base Colors -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="text_muted">#8E92A4</color>
     <color name="status_green">#00E676</color>
     <color name="status_yellow">#FFD600</color>
     <color name="status_red">#FF5252</color>
+
+    <!-- Theme: Spiritual Gold (Default for 108 Mala) -->
+    <color name="gold_bg">#12100A</color>
+    <color name="gold_card">#1C1910</color>
+    <color name="gold_card_stroke">#2F291B</color>
+    <color name="gold_accent">#FFB800</color>
+    <color name="gold_accent_glow">#33FFB800</color>
+    <color name="gold_text">#FFF8E7</color>
+
+    <!-- Theme: Obsidian Blue -->
+    <color name="obsidian_bg">#0D0E15</color>
+    <color name="obsidian_card">#161823</color>
+    <color name="obsidian_card_stroke">#26293A</color>
+    <color name="obsidian_accent">#4E95FF</color>
+    <color name="obsidian_accent_glow">#334E95FF</color>
+    <color name="obsidian_text">#F0F3FF</color>
+
+    <!-- Theme: Emerald Forest -->
+    <color name="emerald_bg">#09130E</color>
+    <color name="emerald_card">#112119</color>
+    <color name="emerald_card_stroke">#1C3729</color>
+    <color name="emerald_accent">#00E676</color>
+    <color name="emerald_accent_glow">#3300E676</color>
+    <color name="emerald_text">#EBF9F1</color>
+
+    <!-- Theme: Lotus Pink -->
+    <color name="lotus_bg">#140A12</color>
+    <color name="lotus_card">#22111E</color>
+    <color name="lotus_card_stroke">#381C32</color>
+    <color name="lotus_accent">#FF4081</color>
+    <color name="lotus_accent_glow">#33FF4081</color>
+    <color name="lotus_text">#FFF0F6</color>
 </resources>

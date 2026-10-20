@@ -1,11 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Base Theme -->
     <style name="Theme.BeiQiCounter" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorPrimaryVariant">@color/primary_dark</item>
-        <item name="colorOnPrimary">@color/text_main</item>
-        <item name="colorSecondary">@color/accent</item>
-        <item name="android:statusBarColor">@color/bg_dark</item>
-        <item name="android:windowBackground">@color/bg_dark</item>
+        <item name="colorPrimary">@color/gold_accent</item>
+        <item name="colorPrimaryVariant">@color/gold_card</item>
+        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorSecondary">@color/gold_accent</item>
+        <item name="android:statusBarColor">@color/gold_bg</item>
+        <item name="android:windowBackground">@color/gold_bg</item>
+    </style>
+
+    <!-- Theme Variants -->
+    <style name="Theme.BeiQiCounter.Gold">
+        <item name="colorPrimary">@color/gold_accent</item>
+        <item name="android:statusBarColor">@color/gold_bg</item>
+        <item name="android:windowBackground">@color/gold_bg</item>
+    </style>
+
+    <style name="Theme.BeiQiCounter.Obsidian">
+        <item name="colorPrimary">@color/obsidian_accent</item>
+        <item name="android:statusBarColor">@color/obsidian_bg</item>
+        <item name="android:windowBackground">@color/obsidian_bg</item>
+    </style>
+
+    <style name="Theme.BeiQiCounter.Emerald">
+        <item name="colorPrimary">@color/emerald_accent</item>
+        <item name="android:statusBarColor">@color/emerald_bg</item>
+        <item name="android:windowBackground">@color/emerald_bg</item>
+    </style>
+
+    <style name="Theme.BeiQiCounter.Lotus">
+        <item name="colorPrimary">@color/lotus_accent</item>
+        <item name="android:statusBarColor">@color/lotus_bg</item>
+        <item name="android:windowBackground">@color/lotus_bg</item>
     </style>
 </resources>
